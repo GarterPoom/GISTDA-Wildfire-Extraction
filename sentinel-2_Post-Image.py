@@ -1,6 +1,4 @@
 import os
-import rasterio
-from rasterio.enums import Resampling
 from osgeo import gdal
 import sys
 from pathlib import Path
@@ -8,45 +6,56 @@ import time
 
 def resample_image(input_path, output_path, target_resolution=10):
     """
-    Resamples a single image to a target resolution and saves it as an 8-bit GeoTIFF file.
+    Resamples a single image to a target resolution using GDAL and saves it as a compressed GeoTIFF file.
     """
     try:
         print(f"Resampling image: {input_path} to {output_path} at {target_resolution}m resolution.")
         
-        with rasterio.open(input_path) as src:
-            scale_factor = src.res[0] / target_resolution
-            
-            data = src.read(
-                out_shape=(
-                    src.count,
-                    int(src.height * scale_factor),
-                    int(src.width * scale_factor)
-                ),
-                resampling=Resampling.nearest
-            )
-            
-            transform = src.transform * src.transform.scale(
-                (src.width / data.shape[-1]),
-                (src.height / data.shape[-2])
-            )
-            # Ensure output directory exists
-            os.makedirs(os.path.dirname(output_path), exist_ok=True)
-
-            # Use rasterio's context manager for proper file handling
-            profile = src.profile.copy()
-            profile.update({
-                'driver': 'GTiff',
-                'height': data.shape[1],
-                'width': data.shape[2],
-                'count': src.count,
-                'dtype': 'uint32',
-                'transform': transform
-            })
-
-            with rasterio.open(output_path, 'w', **profile) as dst:
-                dst.write(data)
+        # Ensure output directory exists
+        os.makedirs(os.path.dirname(output_path), exist_ok=True)
         
-        print(f"Resampling completed: {output_path}")
+        # Open the input dataset
+        src_ds = gdal.Open(input_path)
+        if not src_ds:
+            raise ValueError(f"Could not open {input_path}")
+            
+        # Get the input resolution
+        gt = src_ds.GetGeoTransform()
+        input_res = gt[1]  # pixel width
+        
+        # Calculate new dimensions
+        src_xsize = src_ds.RasterXSize
+        src_ysize = src_ds.RasterYSize
+        dst_xsize = int(src_xsize * (input_res / target_resolution))
+        dst_ysize = int(src_ysize * (input_res / target_resolution))
+
+        # Create translation options
+        translate_options = gdal.TranslateOptions(
+            format='GTiff',
+            width=dst_xsize,
+            height=dst_ysize,
+            resampleAlg=gdal.GRA_NearestNeighbour,
+            creationOptions=[
+                'COMPRESS=LZW',
+                'PREDICTOR=2',
+                'TILED=YES',
+                'BLOCKXSIZE=256',
+                'BLOCKYSIZE=256',
+                'BIGTIFF=YES'
+            ]
+        )
+        
+        # Perform resampling with compression
+        gdal.Translate(
+            destName=output_path,
+            srcDS=src_ds,
+            options=translate_options
+        )
+        
+        # Close the dataset
+        src_ds = None
+        
+        print(f"Resampling completed with compression: {output_path}")
         return True
     except Exception as e:
         print(f"Error resampling image {input_path}: {str(e)}")
@@ -75,10 +84,9 @@ def safe_remove(file_path, max_attempts=5, delay=1):
 
 def process_bands(input_folder, output_folder):
     """
-    Processes Sentinel-2 band files in a given input folder.
+    Processes Sentinel-2 band files in a given input folder with GDAL compression.
     """
     temp_folder = None
-    vrt = None
     try:
         print(f"Processing bands in folder: {input_folder}")
         
@@ -103,7 +111,6 @@ def process_bands(input_folder, output_folder):
             if resample_image(str(jp2_file), str(output_path)):
                 resampled_files.append(str(output_path))
                 
-                # Map band to file path using a simplified approach
                 band_map = {
                     'B01': 'B01', 'B02': 'B02', 'B03': 'B03', 'B04': 'B04',
                     'B05': 'B05', 'B06': 'B06', 'B07': 'B07', 'B08': 'B08',
@@ -126,26 +133,47 @@ def process_bands(input_folder, output_folder):
         sample_filename = jp2_files[0].name
         parts = sample_filename.split('_')
         tile_date_timestamp = f"{parts[0]}_{parts[1]}"
-        output_filename = f"{tile_date_timestamp}_post.tif"  # Changed to _post.tif
+        output_filename = f"{tile_date_timestamp}_post.tif"
         output_path = output_folder / output_filename
 
-        print(f"Creating output file: {output_path}")
+        print(f"Creating compressed output file: {output_path}")
 
-        # Create VRT and ensure it's properly closed
-        vrt = gdal.BuildVRT('', final_resampled_files, separate=True)
-        gdal.Translate(str(output_path), vrt)
-        vrt = None  # Explicitly close VRT
+        # Create VRT with options
+        vrt_options = gdal.BuildVRTOptions(separate=True)
+        vrt_path = str(temp_folder / 'temp.vrt')
+        vrt_ds = gdal.BuildVRT(vrt_path, final_resampled_files, options=vrt_options)
         
-        # Verify output file creation
+        # Create final output with compression
+        translate_options = gdal.TranslateOptions(
+            format='GTiff',
+            creationOptions=[
+                'COMPRESS=LZW',
+                'PREDICTOR=2',
+                'TILED=YES',
+                'BLOCKXSIZE=256',
+                'BLOCKYSIZE=256',
+                'BIGTIFF=YES'
+            ]
+        )
+        
+        gdal.Translate(
+            destName=str(output_path),
+            srcDS=vrt_ds,
+            options=translate_options
+        )
+        
+        # Close VRT dataset
+        vrt_ds = None
+        
         if not output_path.exists():
             raise ValueError(f"Failed to create output file: {output_path}")
         
-        # Clean up with delay
+        # Clean up temporary files
         print("Cleaning up temporary files.")
         for file in resampled_files:
             safe_remove(file)
+        safe_remove(vrt_path)
         
-        # Attempt to remove temp folder
         if temp_folder and temp_folder.exists():
             try:
                 temp_folder.rmdir()
@@ -156,10 +184,6 @@ def process_bands(input_folder, output_folder):
         print(f"Error processing bands: {str(e)}")
         raise
     finally:
-        # Ensure VRT is closed
-        if vrt is not None:
-            vrt = None
-        
         # Final cleanup attempt
         if temp_folder and temp_folder.exists():
             try:
@@ -193,7 +217,10 @@ def find_and_process_folders(root_folder, output_folder):
         sys.exit(1)
 
 if __name__ == "__main__":
-    root_folder = Path('Post-Image')  # Changed to Post-Image
+    # Enable GDAL exceptions
+    gdal.UseExceptions()
+    
+    root_folder = Path('Post-Image')
     output_folder = Path('Raster/input')
     output_folder.mkdir(parents=True, exist_ok=True)
     find_and_process_folders(root_folder, output_folder)
