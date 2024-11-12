@@ -13,16 +13,18 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 class SentinelProcessor:
-    def __init__(self, root_dir, chunk_size=1024):
+    def __init__(self, root_dir, chunk_size=1024, tile_size=1024):
         """
         Initialize the Sentinel processor with root directory.
 
         Args:
             root_dir (str): Root directory for processing
             chunk_size (int): Size of chunks for processing (default: 1024)
+            tile_size (int): Size of output tiles (default: 1024)
         """
         self.root_dir = Path(root_dir).resolve()
         self.chunk_size = chunk_size
+        self.tile_size = tile_size
         self.input_dir, self.output_dir = self._setup_directories()
 
     def _setup_directories(self):
@@ -65,18 +67,7 @@ class SentinelProcessor:
 
     @staticmethod
     def calculate_indices(pre_bands, post_bands):
-        """
-        Calculate various spectral indices.
-
-        Args:
-            pre_bands (dict): Dictionary of pre-fire bands
-            post_bands (dict): Dictionary of post-fire bands
-
-        Returns:
-            tuple: dNBR, NDWI, and NDVI indices
-        """
-
-        # Calculate indices
+        """Calculate various spectral indices."""
         nbr_pre = (pre_bands['B8A'] - pre_bands['B12']) / (pre_bands['B8A'] + pre_bands['B12'])
         nbr_post = (post_bands['B8A'] - post_bands['B12']) / (post_bands['B8A'] + post_bands['B12'])
         dnbr = nbr_pre - nbr_post
@@ -88,40 +79,20 @@ class SentinelProcessor:
 
     @staticmethod
     def create_burn_label(dnbr, ndwi, ndvi, b08):
-        """
-        Create burn label mask based on spectral indices.
+        """Create burn label mask based on spectral indices."""
+        result = np.where(
+            (dnbr > 0.27) & (ndwi < 0) & (ndvi < 0.14) & (b08 < 2500), 
+            1,  # Burn label
+            0   # Non-burn label
+        ).astype(np.float32)
 
-        Args:
-            dnbr (np.ndarray): Difference in Normalized Burn Ratio
-            ndwi (np.ndarray): Normalized Difference Water Index
-            ndvi (np.ndarray): Normalized Difference Vegetation Index
-            b08 (np.ndarray): Band 8 (NIR) data
-
-        Returns:
-            np.ndarray: Burn label mask (0: no burn, 1: burn)
-        """
-        result = ((dnbr > 0.27) & (ndwi < 0) & (ndvi < 0.14) & (b08 < 2500)).astype(np.float32)
         result[~np.isfinite(dnbr) | ~np.isfinite(ndwi) | ~np.isfinite(ndvi) | ~np.isfinite(b08)] = 0
-        
         return result
 
     def process_chunk(self, pre_src, post_src, window):
-        """
-        Process a single chunk of the image.
-        
-        Args:
-            pre_src: Pre-fire rasterio dataset
-            post_src: Post-fire rasterio dataset
-            window: rasterio.windows.Window object
-            
-        Returns:
-            dict: Processed data for the chunk
-        """
-        # Read bands for the chunk
-        band_names = [
-            'B01', 'B02', 'B03', 'B04', 'B05', 'B06',
-            'B07', 'B08', 'B8A', 'B09', 'B11', 'B12'
-        ]
+        """Process a single chunk of the image."""
+        band_names = ['B01', 'B02', 'B03', 'B04', 'B05', 'B06',
+                     'B07', 'B08', 'B8A', 'B09', 'B11', 'B12']
         
         pre_bands = {
             band_name: pre_src.read(i + 1, window=window).astype(np.float32)
@@ -133,10 +104,7 @@ class SentinelProcessor:
             for i, band_name in enumerate(band_names)
         }
 
-        # Calculate indices for the chunk
         dnbr, ndwi, ndvi = self.calculate_indices(pre_bands, post_bands)
-        
-        # Calculate burn label for the chunk
         burn_label = self.create_burn_label(dnbr, ndwi, ndvi, post_bands['B08'])
 
         return {
@@ -147,79 +115,163 @@ class SentinelProcessor:
             'Burn_Label': burn_label
         }
 
-    def process_tile_pair(self, tile_id, paths):
+    def chop_and_save_tiles(self, raster_data, meta, original_filename, tile_output_dir):
         """
-        Process a pair of pre/post-fire images in chunks but save as a single file.
-        
+        Chop processed raster into tiles and save them, grouping into 10 areas with complete tiles.
+
         Args:
-            tile_id (str): Unique identifier for the tile
-            paths (dict): Dictionary with 'pre' and 'post' paths
+            raster_data (dict): Dictionary containing band data
+            meta (dict): Raster metadata
+            original_filename (str): Original filename for naming tiles
+            tile_output_dir (Path): Directory to save tiles
         """
+        try:
+            height = meta['height']
+            width = meta['width']
+
+            # Calculate number of tiles (original size)
+            tile_width = (width + self.tile_size - 1) // self.tile_size
+            tile_height = (height + self.tile_size - 1) // self.tile_size
+
+            # Calculate the total number of tiles
+            total_tiles = tile_width * tile_height
+
+            # We want to limit the number of folders to 10, calculate the number of tiles per area
+            max_areas = 10
+            tiles_per_area = total_tiles // max_areas  # How many tiles per area
+
+            # Determine how many tiles should be in each folder, trying to balance rows and columns
+            area_rows = int(np.ceil(np.sqrt(tiles_per_area)))
+            area_cols = int(np.ceil(tiles_per_area / area_rows))
+
+            # Group tiles into fewer areas (max 10 areas)
+            for area_row in range(max_areas):
+                for area_col in range(max_areas):
+                    # Determine the window bounds for this area
+                    row_start = area_row * self.tile_size * area_rows
+                    row_end = min((area_row + 1) * self.tile_size * area_rows, height)
+
+                    col_start = area_col * self.tile_size * area_cols
+                    col_end = min((area_col + 1) * self.tile_size * area_cols, width)
+
+                    # Create the window for this area
+                    window = Window(
+                        col_start,
+                        row_start,
+                        col_end - col_start,
+                        row_end - row_start
+                    )
+
+                    # Slice the data from the raster
+                    tile_data = {
+                        band_name: band_data[
+                            window.row_off:window.row_off + window.height,
+                            window.col_off:window.col_off + window.width
+                        ]
+                        for band_name, band_data in raster_data.items()
+                    }
+
+                    if any(data.any() for data in tile_data.values()):
+                        # Grouping tiles into an area folder (AreaRowCol)
+                        area_folder = f"Area{area_row}_{area_col}"
+                        area_folder_path = tile_output_dir / area_folder
+                        area_folder_path.mkdir(parents=True, exist_ok=True)
+
+                        # Save the grouped tiles for this area
+                        self._save_tile(tile_data, meta, window, 
+                                    original_filename, area_folder_path)
+
+        except Exception as e:
+            logger.error(f"Failed to save tiles for {original_filename}: {e}")
+            raise
+
+    def _save_single_tile(self, raster_data, meta, original_filename, output_dir):
+        """Save entire raster as a single tile."""
+        tile_meta = meta.copy()
+        tile_name = f"{original_filename}.tif"
+        tile_path = output_dir / tile_name
+        
+        with rasterio.open(tile_path, "w", **tile_meta) as dst:
+            for i, (band_name, data) in enumerate(raster_data.items()):
+                dst.write(data, i + 1)
+                dst.set_band_description(i + 1, band_name)
+        
+        logger.info(f"Saved complete image as single tile: {tile_path}")
+
+    def _save_tile(self, tile_data, meta, window, original_filename, output_dir):
+        """Save individual tile data."""
+        tile_meta = meta.copy()
+        tile_meta.update({
+            "height": window.height,
+            "width": window.width,
+            "transform": rasterio.transform.from_bounds(
+                *self._get_tile_bounds(meta['transform'], window),
+                window.width,
+                window.height
+            )
+        })
+        
+        tile_name = f"{original_filename}_tile_{window.row_off}_{window.col_off}.tif"
+        tile_path = output_dir / tile_name
+        
+        with rasterio.open(tile_path, "w", **tile_meta) as dst:
+            for i, (band_name, data) in enumerate(tile_data.items()):
+                dst.write(data, i + 1)
+                dst.set_band_description(i + 1, band_name)
+        
+        logger.info(f"Saved tile: {tile_path}")
+
+    @staticmethod
+    def _get_tile_bounds(transform, window):
+        """Calculate bounds for a tile."""
+        left = transform[2] + window.col_off * transform[0]
+        top = transform[5] + window.row_off * transform[4]
+        right = left + window.width * transform[0]
+        bottom = top + window.height * transform[4]
+        return left, bottom, right, top
+
+    def process_tile_pair(self, tile_id, paths):
+        """Process a pair of pre/post-fire images and save as tiles."""
         if not paths['pre'] or not paths['post']:
             logger.warning(f"Missing pre or post image for tile {tile_id}")
             return
 
         try:
             with self._open_rasters(paths['pre'], paths['post']) as (pre_src, post_src):
-                # Get dimensions
-                height = post_src.height
-                width = post_src.width
-
-                # Create output profile
                 output_profile = post_src.profile.copy()
-                # Update the output profile to enable BigTIFF
                 output_profile.update({
-                    'count': 16,  # 12 bands + dNBR, NDVI, NDWI, Burn_Label
+                    'count': 16,
                     'dtype': 'float32',
                     'nodata': np.nan,
-                    'BIGTIFF': 'YES',  # Enable BigTIFF to handle large files
-                    'compress': 'LZW'  # or 'LZW'
                 })
 
-                # Generate output path and filename
+                # Process the entire image in memory
+                window = Window(0, 0, post_src.width, post_src.height)
+                processed_data = self.process_chunk(pre_src, post_src, window)
+
+                # Generate output directory for tiles
                 post_filename = Path(paths['post']).stem
                 tile_date = post_filename.split('_')[1]
-                output_filename = f"{tile_id}_{tile_date}_processed.tif"
-                output_path = self.output_dir / output_filename
+                tile_output_dir = self.output_dir / f"{tile_id}_{tile_date}"
+                tile_output_dir.mkdir(parents=True, exist_ok=True)
 
-                # Create output file
-                with rasterio.open(output_path, 'w', **output_profile) as dst:
-                    # Process in chunks
-                    for y in range(0, height, self.chunk_size):
-                        for x in range(0, width, self.chunk_size):
-                            window = Window(
-                                x, y,
-                                min(self.chunk_size, width - x),
-                                min(self.chunk_size, height - y)
-                            )
+                # Chop and save tiles
+                self.chop_and_save_tiles(
+                    processed_data,
+                    output_profile,
+                    f"{tile_id}_{tile_date}",
+                    tile_output_dir
+                )
 
-                            # Process chunk
-                            chunk_data = self.process_chunk(pre_src, post_src, window)
-
-                            # Write chunk data to the appropriate location
-                            for i, (band_name, data) in enumerate(chunk_data.items()):
-                                dst.write(data, i + 1, window=window)
-                                # Set band description only once per band
-                                if x == 0 and y == 0:
-                                    dst.set_band_description(i + 1, band_name)
-
-                            logger.debug(f"Processed chunk at {x},{y} for tile {tile_id}")
-
-                logger.info(f"Processed and saved tile {tile_id} to {output_path}")
+                logger.info(f"Processed and tiled {tile_id}")
 
         except Exception as e:
             logger.error(f"Error processing tile pair {tile_id}: {str(e)}")
             raise
 
     def get_tile_pairs(self):
-        """
-        Get pairs of pre/post-fire images from input directory.
-
-        Returns:
-            dict: Dictionary mapping tile IDs to pre/post image paths
-        """
+        """Get pairs of pre/post-fire images from input directory."""
         tile_pairs = {}
-
         try:
             for file_path in self.input_dir.rglob('*.tif'):
                 tile_id = file_path.stem.split('_')[0]
@@ -238,12 +290,7 @@ class SentinelProcessor:
             raise
 
     def process_all(self, max_workers=None):
-        """
-        Process all tile pairs in parallel.
-
-        Args:
-            max_workers (int, optional): Maximum number of worker processes
-        """
+        """Process all tile pairs in parallel."""
         try:
             tile_pairs = self.get_tile_pairs()
 
@@ -272,16 +319,15 @@ class SentinelProcessor:
 def main():
     """Main entry point for the script."""
     try:
-        # Use absolute path for root directory
         root_dir = Path("Raster").resolve()
         
-        # Initialize processor with memory-efficient chunk size
         processor = SentinelProcessor(
             root_dir=root_dir,
-            chunk_size=1024  # Process in 1024x1024 chunks
+            chunk_size=1024,  # Process in 1024x1024 chunks
+            tile_size=1024    # Output tile size
         )
         
-        logger.info(f"Processing Sentinel-2 images in {root_dir}...")
+        logger.info(f"Processing and tiling Sentinel-2 images in {root_dir}...")
         processor.process_all()
         logger.info("Processing completed successfully")
         
