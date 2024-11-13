@@ -3,11 +3,11 @@ import numpy as np
 import os
 from pathlib import Path
 from concurrent.futures import ProcessPoolExecutor, as_completed
-from rasterio.windows import Window
-from rasterio.enums import Compression
+from rasterio.windows import Window, get_data_window
 from shapely.geometry import box
 import logging
 from contextlib import contextmanager
+import math
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -67,45 +67,111 @@ class SentinelProcessor:
                 post_src.close()
 
     @staticmethod
-    def calculate_indices(pre_bands, post_bands):
-        """Calculate various spectral indices."""
-        nbr_pre = (pre_bands['B8A'] - pre_bands['B12']) / (pre_bands['B8A'] + pre_bands['B12'])
-        nbr_post = (post_bands['B8A'] - post_bands['B12']) / (post_bands['B8A'] + post_bands['B12'])
-        dnbr = nbr_pre - nbr_post
-
-        ndwi = (post_bands['B03'] - post_bands['B08']) / (post_bands['B03'] + post_bands['B08'])
-        ndvi = (post_bands['B08'] - post_bands['B04']) / (post_bands['B08'] + post_bands['B04'])
+    def get_optimal_chunk_size(total_size, mem_limit_mb=200):
+        """
+        Calculate optimal chunk size based on memory limit.
         
+        Args:
+            total_size (int): Total size of the image dimension
+            mem_limit_mb (int): Memory limit in megabytes per chunk
+            
+        Returns:
+            int: Optimal chunk size
+        """
+        mem_bytes = mem_limit_mb * 1024 * 1024  # Convert MB to bytes
+        pixel_bytes = 4  # float32 = 4 bytes
+        bands = 16  # Number of output bands
+        
+        # Calculate maximum pixels that fit in memory limit
+        max_pixels = mem_bytes / (pixel_bytes * bands)
+        
+        # Calculate chunk size (square root of max pixels)
+        chunk_size = int(math.sqrt(max_pixels))
+        
+        # Round down to nearest multiple of 256 for efficiency
+        chunk_size = (chunk_size // 256) * 256
+        
+        # Ensure minimum chunk size of 256
+        return max(256, min(chunk_size, total_size))
+
+    @staticmethod
+    def calculate_indices(pre_bands, post_bands):
+        """
+        Calculate various spectral indices.
+        
+        Args:
+            pre_bands (dict): Dictionary of pre-fire band data
+            post_bands (dict): Dictionary of post-fire band data
+            
+        Returns:
+            tuple: (dnbr, ndwi, ndvi) calculated indices
+        """
+        with np.errstate(divide='ignore', invalid='ignore'):
+            nbr_pre = (pre_bands['B8A'] - pre_bands['B12']) / (pre_bands['B8A'] + pre_bands['B12'])
+            nbr_post = (post_bands['B8A'] - post_bands['B12']) / (post_bands['B8A'] + post_bands['B12'])
+            dnbr = nbr_pre - nbr_post
+
+            ndwi = (post_bands['B03'] - post_bands['B08']) / (post_bands['B03'] + post_bands['B08'])
+            ndvi = (post_bands['B08'] - post_bands['B04']) / (post_bands['B08'] + post_bands['B04'])
+            
         return dnbr, ndwi, ndvi
 
     @staticmethod
     def create_burn_label(dnbr, ndwi, ndvi, b08):
-        """Create burn label mask based on spectral indices."""
-        result = np.where(
-            (dnbr > 0.27) & (ndwi < 0) & (ndvi < 0.14) & (b08 < 2500), 
-            1,  # Burn label
-            0   # Non-burn label
+        """
+        Create burn label mask based on spectral indices.
+        
+        Args:
+            dnbr (np.array): Differenced Normalized Burn Ratio
+            ndwi (np.array): Normalized Difference Water Index
+            ndvi (np.array): Normalized Difference Vegetation Index
+            b08 (np.array): Band 8 data
+            
+        Returns:
+            np.array: Binary burn label mask
+        """
+        burn_label = np.where(
+            (dnbr > 0.27) & (ndwi < 0) & (ndvi < 0.14) & (b08 < 2500),
+            1,
+            0
         ).astype(np.float32)
 
-        result[~np.isfinite(dnbr) | ~np.isfinite(ndwi) | ~np.isfinite(ndvi) | ~np.isfinite(b08)] = 0
-        return result
+        burn_label[~np.isfinite(dnbr) | ~np.isfinite(ndwi) | 
+                  ~np.isfinite(ndvi) | ~np.isfinite(b08)] = 0
+        
+        return burn_label
 
     def process_chunk(self, pre_src, post_src, window):
-        """Process a single chunk of the image."""
+        """
+        Process a single chunk of the image.
+        
+        Args:
+            pre_src: Pre-fire rasterio dataset
+            post_src: Post-fire rasterio dataset
+            window: Rasterio window object defining the chunk
+            
+        Returns:
+            dict: Processed band data and indices
+        """
         band_names = ['B01', 'B02', 'B03', 'B04', 'B05', 'B06',
                      'B07', 'B08', 'B8A', 'B09', 'B11', 'B12']
         
-        pre_bands = {
-            band_name: pre_src.read(i + 1, window=window).astype(np.float32)
-            for i, band_name in enumerate(band_names)
-        }
+        # Read chunks with proper masks
+        pre_bands = {}
+        post_bands = {}
         
-        post_bands = {
-            band_name: post_src.read(i + 1, window=window).astype(np.float32)
-            for i, band_name in enumerate(band_names)
-        }
+        for i, band_name in enumerate(band_names):
+            pre_data = pre_src.read(i + 1, window=window, masked=True)
+            post_data = post_src.read(i + 1, window=window, masked=True)
+            
+            # Convert to float32 and handle masked values
+            pre_bands[band_name] = pre_data.filled(np.nan).astype(np.float32)
+            post_bands[band_name] = post_data.filled(np.nan).astype(np.float32)
 
+        # Calculate indices
         dnbr, ndwi, ndvi = self.calculate_indices(pre_bands, post_bands)
+        
+        # Create burn label
         burn_label = self.create_burn_label(dnbr, ndwi, ndvi, post_bands['B08'])
 
         return {
@@ -116,33 +182,74 @@ class SentinelProcessor:
             'Burn_Label': burn_label
         }
 
-    def save_tile_with_compression(self, tile_data, meta, window, output_path):
-        """Save tile with compression."""
-        tile_meta = meta.copy()
-        tile_meta.update({
-            "height": window.height,
-            "width": window.width,
-            "transform": rasterio.windows.transform(window, meta['transform']),
-            "compress": Compression.lzw,
-            "tiled": True,
-            "BIGTIFF": "YES"  # Enable BIGTIFF to support large files
+    def _save_chunk(self, chunk_data, meta, window, original_filename, output_dir):
+        """
+        Save processed chunk data.
+        
+        Args:
+            chunk_data (dict): Processed chunk data
+            meta (dict): Rasterio metadata
+            window: Rasterio window object
+            original_filename (str): Base filename for output
+            output_dir (Path): Directory to save chunk
+        """
+        chunk_meta = meta.copy()
+        chunk_meta.update({
+            'height': window.height,
+            'width': window.width,
+            'transform': rasterio.transform.from_bounds(
+                *self._get_tile_bounds(meta['transform'], window),
+                window.width,
+                window.height
+            )
         })
         
-        with rasterio.open(output_path, "w", **tile_meta) as dst:
-            for i, (band_name, data) in enumerate(tile_data.items()):
+        chunk_name = f"{original_filename}_chunk_{window.row_off}_{window.col_off}.tif"
+        chunk_path = output_dir / chunk_name
+        
+        with rasterio.open(chunk_path, 'w', **chunk_meta) as dst:
+            for i, (band_name, data) in enumerate(chunk_data.items()):
                 dst.write(data, i + 1)
                 dst.set_band_description(i + 1, band_name)
         
-        logger.info(f"Saved compressed tile: {output_path}")
+        logger.info(f"Saved chunk: {chunk_path}")
+
+    @staticmethod
+    def _get_tile_bounds(transform, window):
+        """
+        Calculate bounds for a tile.
+        
+        Args:
+            transform: Rasterio transform
+            window: Rasterio window object
+            
+        Returns:
+            tuple: (left, bottom, right, top) bounds
+        """
+        left = transform[2] + window.col_off * transform[0]
+        top = transform[5] + window.row_off * transform[4]
+        right = left + window.width * transform[0]
+        bottom = top + window.height * transform[4]
+        return left, bottom, right, top
 
     def process_tile_pair(self, tile_id, paths):
-        """Process a pair of pre/post-fire images and save as tiles."""
+        """
+        Process a pair of pre/post-fire images using chunked processing.
+        
+        Args:
+            tile_id (str): Identifier for the tile pair
+            paths (dict): Dictionary containing paths to pre and post images
+        """
         if not paths['pre'] or not paths['post']:
             logger.warning(f"Missing pre or post image for tile {tile_id}")
             return
 
         try:
-            with self._open_rasters(paths['pre'], paths['post']) as (pre_src, post_src):
+            with rasterio.open(paths['post']) as post_src:
+                # Calculate optimal chunk size based on image dimensions
+                img_size = max(post_src.width, post_src.height)
+                chunk_size = self.get_optimal_chunk_size(img_size)
+                
                 output_profile = post_src.profile.copy()
                 output_profile.update({
                     'count': 16,
@@ -150,25 +257,50 @@ class SentinelProcessor:
                     'nodata': np.nan,
                 })
 
-                # Process the entire image in memory
-                window = Window(0, 0, post_src.width, post_src.height)
-                processed_data = self.process_chunk(pre_src, post_src, window)
-
-                # Generate output path for compressed file
+                # Generate output directory
                 post_filename = Path(paths['post']).stem
-                output_file = self.output_dir / f"{post_filename}_train.tif"
-                
-                # Save the file with compression
-                self.save_tile_with_compression(processed_data, output_profile, window, output_file)
+                tile_date = post_filename.split('_')[1]
+                tile_output_dir = self.output_dir / f"{tile_id}_{tile_date}"
+                tile_output_dir.mkdir(parents=True, exist_ok=True)
 
-                logger.info(f"Processed and saved {tile_id} with compression")
+                # Process image in chunks
+                for y in range(0, post_src.height, chunk_size):
+                    for x in range(0, post_src.width, chunk_size):
+                        # Calculate actual chunk size (handling edges)
+                        effective_width = min(chunk_size, post_src.width - x)
+                        effective_height = min(chunk_size, post_src.height - y)
+                        
+                        window = Window(x, y, effective_width, effective_height)
+                        
+                        # Process chunk
+                        with rasterio.open(paths['pre']) as pre_src:
+                            chunk_data = self.process_chunk(pre_src, post_src, window)
+                        
+                        # Save chunk as a tile
+                        chunk_output_dir = tile_output_dir / f"chunk_{y}_{x}"
+                        chunk_output_dir.mkdir(parents=True, exist_ok=True)
+                        
+                        self._save_chunk(
+                            chunk_data,
+                            output_profile,
+                            window,
+                            f"{tile_id}_{tile_date}",
+                            chunk_output_dir
+                        )
+
+                logger.info(f"Processed {tile_id} in chunks")
 
         except Exception as e:
             logger.error(f"Error processing tile pair {tile_id}: {str(e)}")
             raise
 
     def get_tile_pairs(self):
-        """Get pairs of pre/post-fire images from input directory."""
+        """
+        Get pairs of pre/post-fire images from input directory.
+        
+        Returns:
+            dict: Dictionary of tile pairs with pre/post image paths
+        """
         tile_pairs = {}
         try:
             for file_path in self.input_dir.rglob('*.tif'):
@@ -188,7 +320,12 @@ class SentinelProcessor:
             raise
 
     def process_all(self, max_workers=2):
-        """Process all tile pairs in parallel."""
+        """
+        Process all tile pairs in parallel.
+        
+        Args:
+            max_workers (int): Number of parallel processes to use
+        """
         try:
             tile_pairs = self.get_tile_pairs()
 
@@ -221,12 +358,12 @@ def main():
         
         processor = SentinelProcessor(
             root_dir=root_dir,
-            chunk_size=1024,  # Process in 1024x1024 chunks
-            tile_size=1024    # Output tile size
+            chunk_size=1024,
+            tile_size=1024
         )
         
-        logger.info(f"Processing and tiling Sentinel-2 images in {root_dir}...")
-        processor.process_all()
+        logger.info(f"Processing Sentinel-2 images in {root_dir}...")
+        processor.process_all(max_workers=2)
         logger.info("Processing completed successfully")
         
     except Exception as e:
