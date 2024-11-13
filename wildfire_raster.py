@@ -4,6 +4,7 @@ import os
 from pathlib import Path
 from concurrent.futures import ProcessPoolExecutor, as_completed
 from rasterio.windows import Window
+from rasterio.enums import Compression
 from shapely.geometry import box
 import logging
 from contextlib import contextmanager
@@ -115,120 +116,24 @@ class SentinelProcessor:
             'Burn_Label': burn_label
         }
 
-    def chop_and_save_tiles(self, raster_data, meta, original_filename, tile_output_dir):
-        """
-        Chop processed raster into tiles and save them, grouping into 10 areas with complete tiles.
-
-        Args:
-            raster_data (dict): Dictionary containing band data
-            meta (dict): Raster metadata
-            original_filename (str): Original filename for naming tiles
-            tile_output_dir (Path): Directory to save tiles
-        """
-        try:
-            height = meta['height']
-            width = meta['width']
-
-            # Calculate number of tiles (original size)
-            tile_width = (width + self.tile_size - 1) // self.tile_size
-            tile_height = (height + self.tile_size - 1) // self.tile_size
-
-            # Calculate the total number of tiles
-            total_tiles = tile_width * tile_height
-
-            # We want to limit the number of folders to 10, calculate the number of tiles per area
-            max_areas = 10
-            tiles_per_area = total_tiles // max_areas  # How many tiles per area
-
-            # Determine how many tiles should be in each folder, trying to balance rows and columns
-            area_rows = int(np.ceil(np.sqrt(tiles_per_area)))
-            area_cols = int(np.ceil(tiles_per_area / area_rows))
-
-            # Group tiles into fewer areas (max 10 areas)
-            for area_row in range(max_areas):
-                for area_col in range(max_areas):
-                    # Determine the window bounds for this area
-                    row_start = area_row * self.tile_size * area_rows
-                    row_end = min((area_row + 1) * self.tile_size * area_rows, height)
-
-                    col_start = area_col * self.tile_size * area_cols
-                    col_end = min((area_col + 1) * self.tile_size * area_cols, width)
-
-                    # Create the window for this area
-                    window = Window(
-                        col_start,
-                        row_start,
-                        col_end - col_start,
-                        row_end - row_start
-                    )
-
-                    # Slice the data from the raster
-                    tile_data = {
-                        band_name: band_data[
-                            window.row_off:window.row_off + window.height,
-                            window.col_off:window.col_off + window.width
-                        ]
-                        for band_name, band_data in raster_data.items()
-                    }
-
-                    if any(data.any() for data in tile_data.values()):
-                        # Grouping tiles into an area folder (AreaRowCol)
-                        area_folder = f"Area{area_row}_{area_col}"
-                        area_folder_path = tile_output_dir / area_folder
-                        area_folder_path.mkdir(parents=True, exist_ok=True)
-
-                        # Save the grouped tiles for this area
-                        self._save_tile(tile_data, meta, window, 
-                                    original_filename, area_folder_path)
-
-        except Exception as e:
-            logger.error(f"Failed to save tiles for {original_filename}: {e}")
-            raise
-
-    def _save_single_tile(self, raster_data, meta, original_filename, output_dir):
-        """Save entire raster as a single tile."""
-        tile_meta = meta.copy()
-        tile_name = f"{original_filename}.tif"
-        tile_path = output_dir / tile_name
-        
-        with rasterio.open(tile_path, "w", **tile_meta) as dst:
-            for i, (band_name, data) in enumerate(raster_data.items()):
-                dst.write(data, i + 1)
-                dst.set_band_description(i + 1, band_name)
-        
-        logger.info(f"Saved complete image as single tile: {tile_path}")
-
-    def _save_tile(self, tile_data, meta, window, original_filename, output_dir):
-        """Save individual tile data."""
+    def save_tile_with_compression(self, tile_data, meta, window, output_path):
+        """Save tile with compression."""
         tile_meta = meta.copy()
         tile_meta.update({
             "height": window.height,
             "width": window.width,
-            "transform": rasterio.transform.from_bounds(
-                *self._get_tile_bounds(meta['transform'], window),
-                window.width,
-                window.height
-            )
+            "transform": rasterio.windows.transform(window, meta['transform']),
+            "compress": Compression.lzw,
+            "tiled": True,
+            "BIGTIFF": "YES"  # Enable BIGTIFF to support large files
         })
         
-        tile_name = f"{original_filename}_tile_{window.row_off}_{window.col_off}.tif"
-        tile_path = output_dir / tile_name
-        
-        with rasterio.open(tile_path, "w", **tile_meta) as dst:
+        with rasterio.open(output_path, "w", **tile_meta) as dst:
             for i, (band_name, data) in enumerate(tile_data.items()):
                 dst.write(data, i + 1)
                 dst.set_band_description(i + 1, band_name)
         
-        logger.info(f"Saved tile: {tile_path}")
-
-    @staticmethod
-    def _get_tile_bounds(transform, window):
-        """Calculate bounds for a tile."""
-        left = transform[2] + window.col_off * transform[0]
-        top = transform[5] + window.row_off * transform[4]
-        right = left + window.width * transform[0]
-        bottom = top + window.height * transform[4]
-        return left, bottom, right, top
+        logger.info(f"Saved compressed tile: {output_path}")
 
     def process_tile_pair(self, tile_id, paths):
         """Process a pair of pre/post-fire images and save as tiles."""
@@ -249,21 +154,14 @@ class SentinelProcessor:
                 window = Window(0, 0, post_src.width, post_src.height)
                 processed_data = self.process_chunk(pre_src, post_src, window)
 
-                # Generate output directory for tiles
+                # Generate output path for compressed file
                 post_filename = Path(paths['post']).stem
-                tile_date = post_filename.split('_')[1]
-                tile_output_dir = self.output_dir / f"{tile_id}_{tile_date}"
-                tile_output_dir.mkdir(parents=True, exist_ok=True)
+                output_file = self.output_dir / f"{post_filename}_train.tif"
+                
+                # Save the file with compression
+                self.save_tile_with_compression(processed_data, output_profile, window, output_file)
 
-                # Chop and save tiles
-                self.chop_and_save_tiles(
-                    processed_data,
-                    output_profile,
-                    f"{tile_id}_{tile_date}",
-                    tile_output_dir
-                )
-
-                logger.info(f"Processed and tiled {tile_id}")
+                logger.info(f"Processed and saved {tile_id} with compression")
 
         except Exception as e:
             logger.error(f"Error processing tile pair {tile_id}: {str(e)}")
@@ -289,7 +187,7 @@ class SentinelProcessor:
             logger.error(f"Error getting tile pairs: {str(e)}")
             raise
 
-    def process_all(self, max_workers=None):
+    def process_all(self, max_workers=2):
         """Process all tile pairs in parallel."""
         try:
             tile_pairs = self.get_tile_pairs()
