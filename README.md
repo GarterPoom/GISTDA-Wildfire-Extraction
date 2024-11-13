@@ -42,6 +42,9 @@ This Python script processes Sentinel-2 satellite imagery to identify burned are
 
 ### Directory Structure
 The script expects the following folder structure:
+
+```python
+
 GISTDA_BURN EXTRACT
      |_Post-Image
      |_Pre-Image
@@ -49,6 +52,7 @@ GISTDA_BURN EXTRACT
         |_input
         |_output
 ```
+
 Post-Image/: Directory store Sentinel-2 Image which is After Burn Period as same tile with Pre-Image Folder.
 Pre-Image/: Directory store Sentinel-2 Image which is Before Burn Period as same tile with Post-Image Folder.
 input/: Contains pre- and post-fire images in TIFF format (```pre``` and ```post``` in filenames).
@@ -70,6 +74,6 @@ From Above image, display area masking as burn will be show as white color when 
 
 Which burn area will be display as strong purple color and active file display as orange. For pink color that display as Landuse or bare soil and built-up areas. Vegetation in various shades of green.
 
-### Collaboration
+## Collaboration
 
 ![png](verythank.png)
