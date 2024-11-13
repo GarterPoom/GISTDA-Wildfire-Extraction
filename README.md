@@ -66,11 +66,11 @@ output/: Stores the processed output for each image tile and chunk.
 Error Handling: Logs any errors during execution to help with debugging and monitoring.
 
 ### Wildfire Extract Sample
-![png](Wildfire Extract Sample.png)
+![png](Wildfire_Extract_Sample.png)
 
 From Above image, display area masking as burn will be show as white color when open file with QGIS. And below when compare with Band combination following B12, B8A, B4 or Short-Wave Infrared:
 
-![png](Band Combination Example.png)
+![png](Band_Combination_Example.png)
 
 Which burn area will be display as strong purple color and active file display as orange. For pink color that display as Landuse or bare soil and built-up areas. Vegetation in various shades of green.
 
