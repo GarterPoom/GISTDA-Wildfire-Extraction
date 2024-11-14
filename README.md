@@ -1,6 +1,6 @@
 # GISTDA-Wildfire-Extraction
 
-## Repository for method to perform Wildfire Extract from Sentinel-2 Satellite images which this method developed by Thailand Royal Forest Department.
+### Repository for method to perform Wildfire Extract from Sentinel-2 Satellite images which this method developed by Thailand Royal Forest Department.
 
 ## Prerequisites
 ### Anaconda
@@ -15,6 +15,45 @@ Environment Prepare step:
 - use following command: ```conda env create -f /path/to/folder/environment.yml```
 Example: ```conda env create -f "D:\Sentinel-2 Environment\environment.yml"```
 
+### Sentinel-2 Imagery
+You would need to download Sentinel-2 Image from ```https://browser.dataspace.copernicus.eu/``` And then next step:
+- Search area that you interest including before and after burn period. Which both of period need to be same tile.
+- Before burn image period suggest during in November - December.
+- After burn image period suggest during in January - April.
+- You need to set parameter during download as below:
+
+![png](Sentinel-2_Search.png)
+
+        - Satellite: Sentinel-2
+        - Processing Level: Level-2A
+        - Cloud: 1%
+        - Time Range you can set as above sugguestion.     
+
+- After downloaded done, need to extract zip file from download which contain Sentinel-2 image. Which directory structure example as below:
+
+```python
+
+├── S2A_MSIL2A_20201223T040201_N0500_R004_T47QLA_20230227T185228.SAFE
+│   ├── S2A_MSIL2A_20201223T040201_N0500_R004_T47QLA_20230227T185228.SAFE
+│   │   ├── GRANULE
+│   │   │   ├── L2A_T47QLA_A028744_20201223T041215
+│   │   │   │   ├── IMG_DATA
+│   │   │   │   │   ├── R10m
+│   │   │   │   │   │   ├── T47QLA_20201223T040201_B02_10m.jp2
+│   │   │   │   │   │   ├── T47QLA_20201223T040201_B03_10m.jp2
+│   │   │   │   │   │   ├── T47QLA_20201223T040201_B04_10m.jp2
+│   │   │   │   │   │   ├── T47QLA_20201223T040201_B08_10m.jp2
+                    ├── R20m
+                    │   ├── T47QLA_20201223T040201_B01_20m.jp2
+                    │   ├── T47QLA_20201223T040201_B05_20m.jp2
+                    │   ├── T47QLA_20201223T040201_B06_20m.jp2
+                    │   ├── T47QLA_20201223T040201_B07_20m.jp2
+                    │   ├── T47QLA_20201223T040201_B8A_20m.jp2
+                    │   ├── T47QLA_20201223T040201_B11_20m.jp2s
+                    │   ├── T47QLA_20201223T040201_B12_20m.jp2
+                    ├── R60m
+                    │   ├── T47QLA_20201223T040201_B09_60m.jp2
+```
 ## Python Modules
 ### Sentinel-2 Image Before and After Burn Resampling and Multi-Band Processing Script
 This Python script processes Sentinel-2 imagery by resampling multiple spectral bands to a 10m resolution and then combining them into a single multi-band GeoTIFF file. The script leverages rasterio and GDAL for handling raster files, and it automates the process of finding and processing all relevant .jp2 files in a given folder structure.
