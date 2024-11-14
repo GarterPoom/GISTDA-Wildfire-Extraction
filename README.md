@@ -49,7 +49,7 @@ You would need to download Sentinel-2 Image from ```https://browser.dataspace.co
                     │   ├── T47QLA_20201223T040201_B06_20m.jp2
                     │   ├── T47QLA_20201223T040201_B07_20m.jp2
                     │   ├── T47QLA_20201223T040201_B8A_20m.jp2
-                    │   ├── T47QLA_20201223T040201_B11_20m.jp2s
+                    │   ├── T47QLA_20201223T040201_B11_20m.jp2
                     │   ├── T47QLA_20201223T040201_B12_20m.jp2
                     ├── R60m
                     │   ├── T47QLA_20201223T040201_B09_60m.jp2
