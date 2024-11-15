@@ -1,6 +1,7 @@
 import rasterio
 import numpy as np
 import os
+import pandas as pd
 from pathlib import Path
 from concurrent.futures import ProcessPoolExecutor, as_completed
 from rasterio.windows import Window, get_data_window
@@ -133,8 +134,7 @@ class SentinelProcessor:
         burn_label = np.where(
             (dnbr > 0.27) & (ndwi < 0) & (ndvi < 0.14) & (b08 < 2500),
             1,
-            0
-        ).astype(np.float32)
+            0)
 
         burn_label[~np.isfinite(dnbr) | ~np.isfinite(ndwi) | 
                   ~np.isfinite(ndvi) | ~np.isfinite(b08)] = 0
@@ -144,54 +144,46 @@ class SentinelProcessor:
     def process_chunk(self, pre_src, post_src, window):
         """
         Process a single chunk of the image.
-        
-        Args:
-            pre_src: Pre-fire rasterio dataset
-            post_src: Post-fire rasterio dataset
-            window: Rasterio window object defining the chunk
-            
-        Returns:
-            dict: Processed band data and indices
         """
         band_names = ['B01', 'B02', 'B03', 'B04', 'B05', 'B06',
                      'B07', 'B08', 'B8A', 'B09', 'B11', 'B12']
         
-        # Read chunks with proper masks
         pre_bands = {}
         post_bands = {}
         
-        for i, band_name in enumerate(band_names):
-            pre_data = pre_src.read(i + 1, window=window, masked=True)
-            post_data = post_src.read(i + 1, window=window, masked=True)
+        # Process and store output bands in desired order
+        output_data = {}
+        
+        # First process the B01-B12 bands
+        for band_name in band_names:
+            idx = band_names.index(band_name) + 1
+            pre_data = pre_src.read(idx, window=window, masked=True)
+            post_data = post_src.read(idx, window=window, masked=True)
             
-            # Convert to float32 and handle masked values
             pre_bands[band_name] = pre_data.filled(np.nan).astype(np.float32)
             post_bands[band_name] = post_data.filled(np.nan).astype(np.float32)
+            
+            # Store normalized post bands
+            output_data[band_name] = post_bands[band_name]
 
         # Calculate indices
         dnbr, ndwi, ndvi = self.calculate_indices(pre_bands, post_bands)
         
-        # Create burn label
-        burn_label = self.create_burn_label(dnbr, ndwi, ndvi, post_bands['B08'])
-
-        return {
-            **post_bands,
-            'dNBR': dnbr,
-            'NDVI': ndvi,
-            'NDWI': ndwi,
-            'Burn_Label': burn_label
-        }
+        # Add normalized indices
+        output_data['dNBR'] = dnbr
+        output_data['NDVI'] = ndvi
+        output_data['NDWI'] = ndwi
+        
+        # Add burn label
+        output_data['Burn_Label'] = self.create_burn_label(
+            dnbr, ndwi, ndvi, post_bands['B08']
+        )
+        
+        return output_data
 
     def _save_chunk(self, chunk_data, meta, window, original_filename, output_dir):
         """
-        Save processed chunk data.
-        
-        Args:
-            chunk_data (dict): Processed chunk data
-            meta (dict): Rasterio metadata
-            window: Rasterio window object
-            original_filename (str): Base filename for output
-            output_dir (Path): Directory to save chunk
+        Save processed chunk data with specified band order.
         """
         chunk_meta = meta.copy()
         chunk_meta.update({
@@ -207,9 +199,16 @@ class SentinelProcessor:
         chunk_name = f"{original_filename}_chunk_{window.row_off}_{window.col_off}.tif"
         chunk_path = output_dir / chunk_name
         
+        # Define band order
+        band_order = [
+            'B01', 'B02', 'B03', 'B04', 'B05', 'B06',
+            'B07', 'B08', 'B8A', 'B09', 'B11', 'B12',
+            'dNBR', 'NDVI', 'NDWI', 'Burn_Label'
+        ]
+        
         with rasterio.open(chunk_path, 'w', **chunk_meta) as dst:
-            for i, (band_name, data) in enumerate(chunk_data.items()):
-                dst.write(data, i + 1)
+            for i, band_name in enumerate(band_order):
+                dst.write(chunk_data[band_name], i + 1)
                 dst.set_band_description(i + 1, band_name)
         
         logger.info(f"Saved chunk: {chunk_path}")
@@ -235,10 +234,6 @@ class SentinelProcessor:
     def process_tile_pair(self, tile_id, paths):
         """
         Process a pair of pre/post-fire images using chunked processing.
-        
-        Args:
-            tile_id (str): Identifier for the tile pair
-            paths (dict): Dictionary containing paths to pre and post images
         """
         if not paths['pre'] or not paths['post']:
             logger.warning(f"Missing pre or post image for tile {tile_id}")
@@ -246,15 +241,19 @@ class SentinelProcessor:
 
         try:
             with rasterio.open(paths['post']) as post_src:
-                # Calculate optimal chunk size based on image dimensions
+                # Calculate optimal chunk size
                 img_size = max(post_src.width, post_src.height)
                 chunk_size = self.get_optimal_chunk_size(img_size)
                 
+                # Set number of output bands to exactly 16 (12 original + 4 indices)
+                num_output_bands = 16
+                
+                # Update output profile
                 output_profile = post_src.profile.copy()
                 output_profile.update({
-                    'count': 16,
+                    'count': num_output_bands,
                     'dtype': 'float32',
-                    'nodata': np.nan,
+                    'nodata': np.nan
                 })
 
                 # Generate output directory
@@ -266,20 +265,18 @@ class SentinelProcessor:
                 # Process image in chunks
                 for y in range(0, post_src.height, chunk_size):
                     for x in range(0, post_src.width, chunk_size):
-                        # Calculate actual chunk size (handling edges)
                         effective_width = min(chunk_size, post_src.width - x)
                         effective_height = min(chunk_size, post_src.height - y)
                         
                         window = Window(x, y, effective_width, effective_height)
                         
-                        # Process chunk
                         with rasterio.open(paths['pre']) as pre_src:
                             chunk_data = self.process_chunk(pre_src, post_src, window)
                         
-                        # Save chunk as a tile
                         chunk_output_dir = tile_output_dir / f"chunk_{y}_{x}"
                         chunk_output_dir.mkdir(parents=True, exist_ok=True)
                         
+                        # Save chunk with ordered band names
                         self._save_chunk(
                             chunk_data,
                             output_profile,
@@ -351,6 +348,86 @@ class SentinelProcessor:
             logger.error(f"Error in process_all: {str(e)}")
             raise
 
+    def preview_processed_tile(self, tile_id, chunk_coords=None, sample_size=5):
+            """
+            Preview processed raster data (output GeoTIFF with calculated indices).
+        
+            Args:
+                tile_id (str): Identifier for the processed tile
+                chunk_coords (tuple): Optional (y, x) coordinates of specific chunk to preview
+                sample_size (int): Number of pixels to show for each dimension
+            
+            Returns:
+                pd.DataFrame: DataFrame containing the preview of processed data
+            """
+            # Find the processed tile directory
+            processed_tiles = list(self.output_dir.glob(f"{tile_id}*"))
+            if not processed_tiles:
+                logger.error(f"No processed data found for tile {tile_id}")
+                return None
+            
+            tile_dir = processed_tiles[0]
+        
+            # If chunk coordinates are not specified, get the first chunk
+            if chunk_coords is None:
+                chunks = list(tile_dir.rglob("*.tif"))
+                if not chunks:
+                    logger.error(f"No chunks found in {tile_dir}")
+                    return None
+                chunk_path = chunks[0]
+            else:
+                chunk_y, chunk_x = chunk_coords
+                chunk_path = tile_dir / f"chunk_{chunk_y}_{chunk_x}" / f"{tile_dir.name}_chunk_{chunk_y}_{chunk_x}.tif"
+                if not chunk_path.exists():
+                    logger.error(f"Chunk not found at {chunk_path}")
+                    return None
+
+            # Read and preview the processed data
+            with rasterio.open(chunk_path) as src:
+                # Get band descriptions (including calculated indices)
+                band_descriptions = [src.descriptions[i-1] or f'Band_{i}' for i in range(1, src.count + 1)]
+            
+                # Read a small window of data
+                window_data = {}
+                for i in range(src.count):
+                    band_data = src.read(i + 1, window=Window(0, 0, sample_size, sample_size))
+                    band_name = band_descriptions[i]
+                    window_data[band_name] = band_data.flatten()
+            
+                # Create DataFrame
+                df = pd.DataFrame(window_data)
+            
+                # Add pixel coordinates
+                y_coords, x_coords = np.meshgrid(range(sample_size), range(sample_size))
+                df['y_coord'] = y_coords.flatten()
+                df['x_coord'] = x_coords.flatten()
+            
+                # Reorder columns to show coordinates first, then indices, then bands
+                index_cols = ['dNBR', 'NDVI', 'NDWI', 'Burn_Label']
+                band_cols = [col for col in df.columns if col not in ['y_coord', 'x_coord'] + index_cols]
+                cols = ['y_coord', 'x_coord'] + index_cols + band_cols
+                df = df[cols]
+            
+                # Add basic metadata
+                df.attrs['crs'] = src.crs.to_string()
+                df.attrs['transform'] = src.transform
+                df.attrs['resolution'] = src.res
+            
+                # Add basic statistics for indices
+                stats = {}
+                for index_name in index_cols:
+                    if index_name in df.columns:
+                        valid_data = df[index_name].dropna()
+                        stats[index_name] = {
+                            'mean': valid_data.mean(),
+                            'std': valid_data.std(),
+                            'min': valid_data.min(),
+                            'max': valid_data.max()
+                        }
+                df.attrs['index_stats'] = stats
+            
+                return df
+
 def main():
     """Main entry point for the script."""
     try:
@@ -361,11 +438,36 @@ def main():
             chunk_size=1024,
             tile_size=1024
         )
-        
+
+        # First, process all tiles
         logger.info(f"Processing Sentinel-2 images in {root_dir}...")
         processor.process_all(max_workers=2)
         logger.info("Processing completed successfully")
+
+        # Now check for processed tiles
+        processed_tiles = [d.name.split('_')[0] for d in processor.output_dir.iterdir() if d.is_dir()]
         
+        if not processed_tiles:
+            logger.warning("No processed tiles found in output directory")
+            return
+            
+        # Preview the first processed tile
+        first_tile = processed_tiles[0]
+        logger.info(f"\nPreviewing processed data for tile: {first_tile}")
+        
+        df = processor.preview_processed_tile(first_tile)
+        if df is not None:
+            logger.info("\nProcessed data preview:")
+            logger.info(df.head())
+            
+            logger.info("\nIndex Statistics:")
+            for index_name, stats in df.attrs['index_stats'].items():
+                logger.info(f"\n{index_name}:")
+                for stat_name, value in stats.items():
+                    logger.info(f"{stat_name}: {value:.4f}")
+        else:
+            logger.error("Failed to preview processed tile")
+            
     except Exception as e:
         logger.error(f"Fatal error in main: {str(e)}")
         raise
