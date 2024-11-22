@@ -730,3 +730,25 @@ Raster_Train/T47QLB_20200128T040021_chunk_8960_1792.tif
 Raster_Train/T47QLB_20200128T040021_chunk_8960_5376.tif
 .gitignore
 Export Model/MinMax_Scaler_DownSP.pkl
+Used Raster/T47QLA_20210226T035719_chunk_1792_0.tif
+Used Raster/T47QLA_20210226T035719_chunk_1792_1792.tif
+Used Raster/T47QLA_20210226T035719_chunk_1792_3584.tif
+Used Raster/T47QLA_20210226T035719_chunk_5376_3584.tif
+Used Raster/T47QLA_20210226T035719_chunk_5376_5376.tif
+Used Raster/T47QLA_20210226T035719_chunk_5376_7168.tif
+Used Raster/T47QLB_20200128T040021_chunk_1792_1792.tif
+Used Raster/T47QLA_20210226T035719_chunk_1792_0.tif
+Used Raster/T47QLB_20200128T040021_chunk_8960_0.tif
+Used Raster/T47QLB_20200128T040021_chunk_8960_1792.tif
+Used Raster/T47QLB_20200128T040021_chunk_8960_5376.tif
+Raster/output/T47QLA_20210226T035719_chunk_0_1792.tif
+Raster/output/T47QLA_20210226T035719_chunk_0_3584.tif
+Raster/output/T47QLA_20210226T035719_chunk_1792_0.tif
+Raster/output/T47QLA_20210226T035719_chunk_1792_3584.tif
+Raster/output/T47QLB_20200128T040021_chunk_0_5376.tif
+Raster/output/T47QLB_20200128T040021_chunk_8960_0.tif
+Raster/output/T47QLB_20200128T040021_chunk_8960_1792.tif
+Export Model/FCNN_model.tf/keras_metadata.pb
+Export Model/FCNN_model.tf/saved_model.pb
+Export Model/FCNN_model.tf/variables/variables.data-00000-of-00001
+Export Model/FCNN_model.tf/variables/variables.index
