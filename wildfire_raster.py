@@ -5,7 +5,6 @@ import pandas as pd
 from pathlib import Path
 from concurrent.futures import ProcessPoolExecutor, as_completed
 from rasterio.windows import Window, get_data_window
-from shapely.geometry import box
 import logging
 from contextlib import contextmanager
 import math
