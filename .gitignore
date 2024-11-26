@@ -864,3 +864,5 @@ Export Model/FCNN_model.tf/saved_model.pb
 Export Model/FCNN_model.tf/variables/variables.data-00000-of-00001
 Export Model/FCNN_model.tf/variables/variables.index
 >>>>>>> 30b6cc19adb39da0c4777dfbe69db95087dae137
+Checking Raster/s2b_msil2a_20230114_t47qpb_10m_band128a4_lut.tif
+Checking Raster/s2a_msil2a_20231205_t47qpu_10m_iii_band128a4_lut.tif
