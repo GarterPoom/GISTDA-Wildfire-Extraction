@@ -16,7 +16,7 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 class SentinelProcessor:
-    def __init__(self, root_dir, chunk_size=256, tile_size=256):
+    def __init__(self, root_dir, chunk_size=1024, tile_size=1024):
         """
         Initialize the Sentinel processor with root directory.
 
@@ -234,17 +234,26 @@ class SentinelProcessor:
 
     def process_tile_pair(self, tile_id, paths):
         """
-        Process a pair of pre/post-fire images using chunked processing.
+        Process a pair of pre/post-fire images with optimized chunking.
+        
+        Ensures no more than 10 total chunks are created for the entire image.
         """
         if not paths['pre'] or not paths['post']:
-            logger.warning(f"Missing pre or post image for tile {tile_id}")
+            logging.warning(f"Missing pre or post image for tile {tile_id}")
             return
 
         try:
             with rasterio.open(paths['post']) as post_src:
-                # Calculate optimal chunk size
-                img_size = max(post_src.width, post_src.height)
-                chunk_size = self.get_optimal_chunk_size(img_size)
+                # Calculate total image size and determine optimal chunk arrangement
+                img_width, img_height = post_src.width, post_src.height
+                
+                # Calculate the number of chunks (aiming for 10 or fewer)
+                total_chunks = min(10, max(1, math.ceil(math.sqrt(10))))
+                chunks_per_side = math.ceil(math.sqrt(total_chunks))
+                
+                # Calculate chunk sizes
+                chunk_width = math.ceil(img_width / chunks_per_side)
+                chunk_height = math.ceil(img_height / chunks_per_side)
                 
                 # Set number of output bands to exactly 16 (12 original + 4 indices)
                 num_output_bands = 16
@@ -263,17 +272,24 @@ class SentinelProcessor:
                 tile_output_dir = self.output_dir / f"{tile_id}_{tile_date}"
                 tile_output_dir.mkdir(parents=True, exist_ok=True)
 
-                # Process image in chunks
-                for y in range(0, post_src.height, chunk_size):
-                    for x in range(0, post_src.width, chunk_size):
-                        effective_width = min(chunk_size, post_src.width - x)
-                        effective_height = min(chunk_size, post_src.height - y)
+                # Process image in optimized chunks
+                chunk_count = 0
+                for y in range(0, img_height, chunk_height):
+                    for x in range(0, img_width, chunk_width):
+                        # Ensure we don't exceed 20 chunks
+                        if chunk_count >= 20:
+                            break
                         
-                        window = Window(x, y, effective_width, effective_height)
+                        # Calculate effective chunk size
+                        effective_width = min(chunk_width, img_width - x)
+                        effective_height = min(chunk_height, img_height - y)
+                        
+                        window = rasterio.windows.Window(x, y, effective_width, effective_height)
                         
                         with rasterio.open(paths['pre']) as pre_src:
                             chunk_data = self.process_chunk(pre_src, post_src, window)
                         
+                        # Create chunk-specific output directory
                         chunk_output_dir = tile_output_dir / f"chunk_{y}_{x}"
                         chunk_output_dir.mkdir(parents=True, exist_ok=True)
                         
@@ -285,11 +301,13 @@ class SentinelProcessor:
                             f"{tile_id}_{tile_date}",
                             chunk_output_dir
                         )
-
-                logger.info(f"Processed {tile_id} in chunks")
+                        
+                        chunk_count += 1
+                
+                logging.info(f"Processed {tile_id} in {chunk_count} chunks")
 
         except Exception as e:
-            logger.error(f"Error processing tile pair {tile_id}: {str(e)}")
+            logging.error(f"Error processing tile pair {tile_id}: {str(e)}")
             raise
 
     def get_tile_pairs(self):
@@ -429,59 +447,6 @@ class SentinelProcessor:
             
                 return df
             
-    def move_burn_priority_files(self, destination_dir, max_size_gb):
-        """
-        Randomly selects TIFF files with priority given to those with the highest burn area, 
-        and moves them to the specified destination directory.
-    
-        Args:
-            destination_dir (str): Path to the destination directory.
-            max_size_gb (int): Maximum total size of selected files in gigabytes (default: 5).
-        """
-        destination_dir = Path(destination_dir).resolve()
-        destination_dir.mkdir(parents=True, exist_ok=True)
-    
-        tiff_files = list(self.output_dir.rglob("*.tif"))
-        if not tiff_files:
-            logger.warning("No TIFF files found in output directory.")
-            return
-    
-        # Calculate burn area for each file
-        file_burn_areas = []
-        for file_path in tiff_files:
-            try:
-                with rasterio.open(file_path) as src:
-                    burn_label_band = src.read(src.count)  # Burn_Label is the last band
-                    burn_area = np.sum(burn_label_band == 1)  # Count burn pixels
-                    file_size = file_path.stat().st_size
-                    file_burn_areas.append((file_path, burn_area, file_size))
-            except Exception as e:
-                logger.error(f"Error reading file {file_path}: {str(e)}")
-    
-        # Sort files by burn area (descending)
-        file_burn_areas.sort(key=lambda x: x[1], reverse=True)
-    
-        # Select files until size limit is reached
-        selected_files = []
-        total_size = 0
-        max_size_bytes = max_size_gb * 1024 * 1024 * 1024  # Convert GB to bytes
-    
-        for file_path, burn_area, file_size in file_burn_areas:
-            if total_size + file_size > max_size_bytes:
-                break
-            selected_files.append(file_path)
-            total_size += file_size
-    
-        logger.info(f"Selected {len(selected_files)} files with total size {total_size / (1024**3):.2f} GB")
-    
-        # Move files to the destination directory
-        for file_path in selected_files:
-            destination_path = destination_dir / file_path.name
-            shutil.move(str(file_path), str(destination_path))
-            logger.info(f"Moved file: {file_path} -> {destination_path}")
-    
-        logger.info(f"All selected files moved to {destination_dir}")
-
 def main():
     """Main entry point for the script."""
     try:
@@ -490,19 +455,14 @@ def main():
         
         processor = SentinelProcessor(
             root_dir=root_dir,
-            chunk_size=256,
-            tile_size=256
+            chunk_size=1024,
+            tile_size=1024
         )
 
         # First, process all tiles
         logger.info(f"Processing Sentinel-2 images in {root_dir}...")
         processor.process_all(max_workers=2)
         logger.info("Processing completed successfully")
-
-        # Randomly select files with burn priority and move to Raster_Train
-        logger.info("Selecting and moving TIFF files by burn priority to Raster_Train...")
-        processor.move_burn_priority_files(train_dir, max_size_gb=2)
-        logger.info("File selection and movement completed.")
 
         # Now check for processed tiles
         processed_tiles = [d.name.split('_')[0] for d in processor.output_dir.iterdir() if d.is_dir()]
