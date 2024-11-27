@@ -4,19 +4,17 @@ import os
 import pandas as pd
 from pathlib import Path
 from concurrent.futures import ProcessPoolExecutor, as_completed
-from rasterio.windows import Window, get_data_window
+from rasterio.windows import Window
 import logging
 from contextlib import contextmanager
 import math
-import random
-import shutil
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 class SentinelProcessor:
-    def __init__(self, root_dir, chunk_size=1024, tile_size=1024):
+    def __init__(self, root_dir, chunk_size, tile_size):
         """
         Initialize the Sentinel processor with root directory.
 
@@ -234,9 +232,9 @@ class SentinelProcessor:
 
     def process_tile_pair(self, tile_id, paths):
         """
-        Process a pair of pre/post-fire images with optimized chunking.
-        
-        Ensures no more than 10 total chunks are created for the entire image.
+        Process a pair of pre/post-fire images with optimized chunking and file size control.
+    
+        Ensures no single output file exceeds 1GB.
         """
         if not paths['pre'] or not paths['post']:
             logging.warning(f"Missing pre or post image for tile {tile_id}")
@@ -246,18 +244,20 @@ class SentinelProcessor:
             with rasterio.open(paths['post']) as post_src:
                 # Calculate total image size and determine optimal chunk arrangement
                 img_width, img_height = post_src.width, post_src.height
-                
-                # Calculate the number of chunks (aiming for 10 or fewer)
-                total_chunks = min(10, max(1, math.ceil(math.sqrt(10))))
-                chunks_per_side = math.ceil(math.sqrt(total_chunks))
-                
-                # Calculate chunk sizes
-                chunk_width = math.ceil(img_width / chunks_per_side)
-                chunk_height = math.ceil(img_height / chunks_per_side)
-                
+            
+                # Maximum pixels for a 1GB file (32-bit float, 16 bands)
+                # 1 GB = 1,073,741,824 bytes
+                # 16 bands * 4 bytes per pixel
+                max_pixels_per_file = int(1_073_741_824 / (16 * 4))
+                max_pixels_per_side = int(math.sqrt(max_pixels_per_file))
+            
+                # Choose chunk size to limit file to ~1GB
+                chunk_width = min(max_pixels_per_side, img_width)
+                chunk_height = min(max_pixels_per_side, img_height)
+            
                 # Set number of output bands to exactly 16 (12 original + 4 indices)
                 num_output_bands = 16
-                
+            
                 # Update output profile
                 output_profile = post_src.profile.copy()
                 output_profile.update({
@@ -276,23 +276,30 @@ class SentinelProcessor:
                 chunk_count = 0
                 for y in range(0, img_height, chunk_height):
                     for x in range(0, img_width, chunk_width):
-                        # Ensure we don't exceed 20 chunks
+                        # Ensure we don't exceed max chunks
                         if chunk_count >= 20:
                             break
-                        
+                    
                         # Calculate effective chunk size
                         effective_width = min(chunk_width, img_width - x)
                         effective_height = min(chunk_height, img_height - y)
-                        
+                    
+                        # Estimate file size before processing
+                        estimated_file_size = effective_width * effective_height * num_output_bands * 4
+                    
+                        if estimated_file_size > 1_073_741_824:  # 1GB
+                            logging.warning(f"Skipping chunk due to estimated size: {estimated_file_size} bytes")
+                            continue
+                    
                         window = rasterio.windows.Window(x, y, effective_width, effective_height)
-                        
+                    
                         with rasterio.open(paths['pre']) as pre_src:
                             chunk_data = self.process_chunk(pre_src, post_src, window)
-                        
+                    
                         # Create chunk-specific output directory
                         chunk_output_dir = tile_output_dir / f"chunk_{y}_{x}"
                         chunk_output_dir.mkdir(parents=True, exist_ok=True)
-                        
+                    
                         # Save chunk with ordered band names
                         self._save_chunk(
                             chunk_data,
@@ -301,9 +308,9 @@ class SentinelProcessor:
                             f"{tile_id}_{tile_date}",
                             chunk_output_dir
                         )
-                        
+                    
                         chunk_count += 1
-                
+            
                 logging.info(f"Processed {tile_id} in {chunk_count} chunks")
 
         except Exception as e:
@@ -455,8 +462,8 @@ def main():
         
         processor = SentinelProcessor(
             root_dir=root_dir,
-            chunk_size=1024,
-            tile_size=1024
+            chunk_size=512, # Default Chunk Size. Can be adjust to appropriate with your hardware specification
+            tile_size=512 # Default Tile size. Can be adjust to appropriate with your hardware specification
         )
 
         # First, process all tiles
