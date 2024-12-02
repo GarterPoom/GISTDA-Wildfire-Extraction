@@ -110,7 +110,7 @@ def create_polygon_shapefile_from_burnt_areas(tif_file_path, output_folder):
     print(f"Polygon shapefile '{output_shapefile_path}' has been created.")
 
 # Example usage
-if __name__ == "__main__":
+def main():
     root_folder = r'Classified Output'  # Path to the root folder where the TIFF is located
     output_folder = r'Wildfire Polygon'  # Path to the folder where the shapefile will be saved
 
@@ -121,3 +121,6 @@ if __name__ == "__main__":
     for tif_file_path in tif_files:
         print(f"\nProcessing file: {tif_file_path}")
         create_polygon_shapefile_from_burnt_areas(tif_file_path, output_folder)
+
+if __name__ == "__main__":
+    main()
