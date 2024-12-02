@@ -1350,10 +1350,6 @@ FCNN_environment.yml
 Model_Train.ipynb
 README.md
 RIDA_environment.yml
-sentinel_2_classified_image_processing.py
-wildfire_classified.py
-wildfire_extraction.py
-wildfire_polygon.py
 wildfire_raster.py
 Export Model/MinMax_Scaler_FCNN.pkl
 Export Model/MinMax_Scaler.pkl
