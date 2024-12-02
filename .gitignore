@@ -1342,11 +1342,3 @@ Wildfire Polygon/T47QPV_20231205T035121_Burn_classified_Burn_classified.dbf
 Wildfire Polygon/T47QPV_20231205T035121_Burn_classified_Burn_classified.prj
 Wildfire Polygon/T47QPV_20231205T035121_Burn_classified_Burn_classified.shp
 Wildfire Polygon/T47QPV_20231205T035121_Burn_classified_Burn_classified.shx
-Export Model/MinMax_Scaler_FCNN.pkl
-Export Model/MinMax_Scaler.pkl
-Export Model/Model_LGBM.sav
-Export Model/Model_XGB.sav
-Export Model/FCNN_model.tf/keras_metadata.pb
-Export Model/FCNN_model.tf/saved_model.pb
-Export Model/FCNN_model.tf/variables/variables.data-00000-of-00001
-Export Model/FCNN_model.tf/variables/variables.index
