@@ -1,0 +1,1 @@
+This Directory store Raster GeoTIFF have been prediction.
