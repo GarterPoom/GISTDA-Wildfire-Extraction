@@ -1372,3 +1372,4 @@ RIDA_environment.yml
 RIDA_environment.yml
 Raster_Train/T47QLA_20210226T035719_chunk_4096_4096.tif
 Raster_Train/T46QHM_20230316T040541_chunk_8192_4096.tif
+Export Model/MinMax_Scaler_DL.pkl
