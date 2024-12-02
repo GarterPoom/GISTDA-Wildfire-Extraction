@@ -14,7 +14,7 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 class SentinelProcessor:
-    def __init__(self, root_dir, chunk_size=256, tile_size=256):
+    def __init__(self, root_dir, chunk_size, tile_size):
         """
         Initialize the Sentinel processor with root directory.
 
