@@ -85,11 +85,16 @@ The script expects the following folder structure:
 ```python
 
 GISTDA_BURN EXTRACT
+     |_Classified Image
+     |_Classified Output
      |_Post-Image
      |_Pre-Image
      |_Raster
         |_input
         |_output
+     |_Raster Classified
+     |_Raster_Train
+     |_Wildfire Polygon
 ```
 
 Post-Image/: Directory store Sentinel-2 Image which is After Burn Period as same tile with Pre-Image Folder.
