@@ -1355,8 +1355,6 @@ wildfire_classified.py
 wildfire_extraction.py
 wildfire_polygon.py
 wildfire_raster.py
-Classified Image/Classified Image.txt
-Classified Output/Classified Output.txt
 Export Model/MinMax_Scaler_FCNN.pkl
 Export Model/MinMax_Scaler.pkl
 Export Model/Model_LGBM.sav
@@ -1365,8 +1363,6 @@ Export Model/FCNN_model.tf/keras_metadata.pb
 Export Model/FCNN_model.tf/saved_model.pb
 Export Model/FCNN_model.tf/variables/variables.data-00000-of-00001
 Export Model/FCNN_model.tf/variables/variables.index
-Raster Classified/Raster Classified.txt
-Wildfire Polygon/Wild Fire Polygon.txt
 RIDA_environment.yml
 RIDA_environment.yml
 RIDA_environment.yml
