@@ -1,3 +1,4 @@
+# Library Package
 import os
 import re
 import rasterio as rio
@@ -370,7 +371,7 @@ def process_tif_file(tif_file_path, scaler_path, model_path, output_tif_path):
 if __name__ == "__main__":
     root_folder = r'Raster Classified'
     scaler_path = r'Export Model/MinMax_Scaler.pkl'
-    model_path = r'Export Model/Model_LGBM.sav'
+    model_path = r'Export Model/Model_LGBM.sav' # Choose Model from Export Model Folder
     output_path = r'Classified Output'
 
     # Ensure the output directory exists
