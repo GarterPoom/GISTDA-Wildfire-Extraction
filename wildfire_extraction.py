@@ -1,14 +1,12 @@
 import rasterio
 import numpy as np
-import os
 import pandas as pd
 from pathlib import Path
 from concurrent.futures import ProcessPoolExecutor, as_completed
-from rasterio.windows import Window, get_data_window
+from rasterio.windows import Window
 import logging
 from contextlib import contextmanager
 import math
-import random
 import shutil
 
 # Configure logging
@@ -16,7 +14,7 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 class SentinelProcessor:
-    def __init__(self, root_dir, chunk_size=256, tile_size=256):
+    def __init__(self, root_dir, chunk_size, tile_size):
         """
         Initialize the Sentinel processor with root directory.
 

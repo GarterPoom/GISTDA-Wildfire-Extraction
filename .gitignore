@@ -1218,6 +1218,9 @@ Raster/output/T47QLB_20230127T040029/chunk_8192_0/T47QLB_20230127T040029_chunk_8
 Raster/output/T47QLB_20230127T040029/chunk_8192_4096/T47QLB_20230127T040029_chunk_8192_4096.tif
 Raster/output/T47QLB_20230127T040029/chunk_8192_8192/T47QLB_20230127T040029_chunk_8192_8192.tif
 wildfire_raster_gpu.py
+<<<<<<< HEAD
+Export Model/MultiTIFF_MinMax_Scaler.pkl
+=======
 >>>>>>> 90ac1be4cab1583165daa0772446af9774b96b68
 Raster/output/T46QGF_20230316T040541/chunk_0_8192/T46QGF_20230316T040541_chunk_0_8192.tif
 Raster/output/T46QGF_20230316T040541/chunk_4096_0/T46QGF_20230316T040541_chunk_4096_0.tif
@@ -1342,6 +1345,7 @@ Wildfire Polygon/T47QPV_20231205T035121_Burn_classified_Burn_classified.dbf
 Wildfire Polygon/T47QPV_20231205T035121_Burn_classified_Burn_classified.prj
 Wildfire Polygon/T47QPV_20231205T035121_Burn_classified_Burn_classified.shp
 Wildfire Polygon/T47QPV_20231205T035121_Burn_classified_Burn_classified.shx
+<<<<<<< HEAD
 Classified Image/T47PMR_20230223T034749_B01_20m.jp2
 Classified Image/T47PMR_20230223T034749_B02_10m.jp2
 Classified Image/T47PMR_20230223T034749_B03_10m.jp2
@@ -1376,3 +1380,25 @@ wildfire_classified.py
 wildfire_classified.py
 wildfire_classified.py
 Export Model/MinMax_Scaler.pkl
+=======
+>>>>>>> d97173b2c4cd284c279c5a21c056e5da1337a13a
+FCNN_environment.yml
+Model_Train.ipynb
+README.md
+RIDA_environment.yml
+wildfire_raster.py
+Export Model/MinMax_Scaler_FCNN.pkl
+Export Model/MinMax_Scaler.pkl
+Export Model/Model_LGBM.sav
+Export Model/Model_XGB.sav
+Export Model/FCNN_model.tf/keras_metadata.pb
+Export Model/FCNN_model.tf/saved_model.pb
+Export Model/FCNN_model.tf/variables/variables.data-00000-of-00001
+Export Model/FCNN_model.tf/variables/variables.index
+RIDA_environment.yml
+RIDA_environment.yml
+RIDA_environment.yml
+Raster_Train/T47QLA_20210226T035719_chunk_4096_4096.tif
+Raster_Train/T46QHM_20230316T040541_chunk_8192_4096.tif
+Export Model/MinMax_Scaler_DL.pkl
+>>>>>>> dc763c131c49cce544f8bca96e5868cc995b349a
