@@ -91,8 +91,8 @@ def create_polygon_shapefile_from_burnt_areas(tif_file_path, output_folder):
     gdf['LATITUDE'] = gdf.geometry.centroid.y
     gdf['LONGITUDE'] = gdf.geometry.centroid.x
 
-    # Reproject to UTM CRS for area calculation (assumes EPSG:32647, adjust as needed)
-    gdf = gdf.to_crs(epsg=32647)
+    # Reproject to the original CRS for area calculation
+    gdf = gdf.to_crs(crs)
 
     # Calculate the area of each polygon in square meters and add AREA column
     gdf['AREA'] = gdf.geometry.area
