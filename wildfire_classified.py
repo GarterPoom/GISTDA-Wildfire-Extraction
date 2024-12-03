@@ -1,20 +1,11 @@
 # Library Package
 import os
-import re
 import rasterio as rio
-import geopandas as gpd
 import numpy as np
 import pandas as pd
-from shapely.geometry import shape
-from datetime import datetime
 import logging
-from rasterio.features import shapes
-from scipy.ndimage import label
 from skimage.transform import resize
-from sklearn.preprocessing import MinMaxScaler
-from sklearn.metrics import classification_report, confusion_matrix
-from lightgbm import LGBMClassifier
-from IPython.display import display, Markdown
+from IPython.display import display
 import pickle
 
 pd.set_option("display.max_columns", None) # To show all columns in a pandas DataFrame
@@ -102,7 +93,7 @@ def rename_bands(df):
     Notes
     -----
     The standard Sentinel-2 bands are: ['Band_1', 'Band_2', 'Band_3', 'Band_4', 'Band_5', 'Band_6', 'Band_7',
-    'Band_8', 'Band_8A', 'Band_9', 'Band_11', 'Band_12', 'NBR', 'NDWI', 'EVI']
+    'Band_8', 'Band_8A', 'Band_9', 'Band_11', 'Band_12']
     """
 
     new_col_names = ['Band_1', 'Band_2', 'Band_3', 'Band_4', 'Band_5', 'Band_6', 'Band_7',
@@ -316,9 +307,9 @@ def create_geotiff_from_predictions(predictions, original_tif_path, output_tif_p
 
     print(f"New GeoTIFF file '{output_tif_path}' has been created.")
 
-def process_tif_file(tif_file_path, scaler_path, model_path, output_tif_path):
+def process_tif_file_in_chunks(tif_file_path, scaler_path, model_path, output_tif_path, chunk_size=50000):
     """
-    Process a TIFF file and generate a new GeoTIFF with predictions.
+    Process a TIFF file in chunks to reduce memory usage.
 
     Parameters
     ----------
@@ -330,50 +321,123 @@ def process_tif_file(tif_file_path, scaler_path, model_path, output_tif_path):
         Path to the saved model.
     output_tif_path : str
         Path to the new GeoTIFF file to be created.
+    chunk_size : int, optional
+        Number of rows to process in each chunk. Default is 50000.
 
     Returns
     -------
     Pandas DataFrame
         DataFrame with the normalized data and predictions.
-
-    Notes
-    -----
-    The function assumes that the TIFF file has the same shape as the original raster.
-    The output GeoTIFF file will have the same transform, crs, and nodata value as the original raster.
-    The function uses 255 as the no-data value for the output raster.
     """
-    df = tif_to_dataframe(tif_file_path)
-    print('Raw DataFrame:')
-    display(df) # Raw DataFrame
+    # Open the original TIFF file to get metadata
+    with rio.open(tif_file_path) as src:
+        height, width = src.shape
+        n_bands = src.count
+        original_metadata = src.meta.copy()
 
-    original_shape = df.shape[0]
-    df = rename_bands(df)
-    df_clean = clean_data(df)
-
-    df_clean = fire_index(df_clean)
-    print('Clean DataFrame:')
-    display(df_clean) # Clean DataFrame
-
-    df_normalized = normalize_data(df_clean, scaler_path)
-    print('Normalized DataFrame:')
-    display(df_normalized) # Normalized DataFrame
-
+    # Load the model and scaler once
     model = load_model(model_path)
-    predictions = make_predictions(model, df_normalized)
-    df_predictions = pd.Series(predictions, name='Burn_Classified')
-    df_combined = pd.concat([df_normalized, df_predictions], axis=1)
-    full_size_predictions = np.full(original_shape, 255, dtype=np.uint8)
-    full_size_predictions[df_clean.index] = predictions
-    create_geotiff_from_predictions(full_size_predictions, tif_file_path, output_tif_path)
-    return df_combined
+    with open(scaler_path, 'rb') as file:
+        scaler = pickle.load(file)
 
-# Example usage
-if __name__ == "__main__":
-    root_folder = r'Raster Classified'
-    scaler_path = r'Export Model/MinMax_Scaler.pkl'
-    model_path = r'Export Model/Model_LGBM.sav' # Choose Model from Export Model Folder
-    output_path = r'Classified Output'
+    # Prepare the final predictions array
+    final_predictions = np.full((height, width), 255, dtype=np.uint8)
 
+    # Read the mask to identify valid pixels
+    with rio.open(tif_file_path) as src:
+        valid_data_mask = src.read_masks(1).astype(bool)
+
+    # Process the file in chunks
+    for start_row in range(0, height, chunk_size):
+        end_row = min(start_row + chunk_size, height)
+        chunk_height = end_row - start_row
+
+        # Read the chunk
+        with rio.open(tif_file_path) as src:
+            chunk_data = src.read(window=rio.windows.Window(0, start_row, width, chunk_height))
+
+        # Reshape the chunk
+        reshaped_data_chunk = chunk_data.reshape(chunk_data.shape[0], -1).T
+        df_chunk = pd.DataFrame(reshaped_data_chunk, columns=[f'Band_{i+1}' for i in range(chunk_data.shape[0])])
+        print("Raw DataFrame: ")
+        display(df_chunk.head())
+        print() # Add Blank line
+
+        # Rename bands
+        df_chunk = rename_bands(df_chunk)
+        print("Rename DataFrame: ")
+        display(df_chunk.head())
+        print() # Add Blank line
+
+        # Clean data
+        df_clean = clean_data(df_chunk)
+        print("Cleaned DataFrame: ")
+        display(df_clean.head())
+        print() # Add Blank line
+
+        # Compute fire indices
+        df_clean = fire_index(df_clean)
+        print("Full DataFrame: ")
+        display(df_clean.head())
+        print() # Add Blank line
+
+        # Normalize data
+        df_normalized = pd.DataFrame(
+            scaler.transform(df_clean), 
+            columns=df_clean.columns
+        )
+        print("Normalized DataFrame: ")
+        display(df_normalized.head())
+        print() # Add Blank line
+
+        # Make predictions
+        predictions = make_predictions(model, df_normalized)
+
+        # Update the final predictions array
+        chunk_mask = valid_data_mask[start_row:end_row, :].flatten()
+        chunk_indices = np.arange(start_row * width, end_row * width)[chunk_mask]
+        
+        final_predictions.flat[chunk_indices] = predictions
+
+        print(f"Processed chunk {start_row} to {end_row}")
+
+    # Create the output GeoTIFF
+    updated_metadata = original_metadata.copy()
+    updated_metadata.update({
+        'dtype': 'uint8',
+        'count': 1,
+    })
+
+    with rio.open(output_tif_path, 'w', **updated_metadata) as new_img:
+        new_img.write(final_predictions, 1)
+
+    print(f"New GeoTIFF file '{output_tif_path}' has been created.")
+
+    # Return summary of predictions
+    unique, counts = np.unique(final_predictions[final_predictions != 255], return_counts=True)
+    prediction_summary = dict(zip(unique, counts))
+    print("\nPrediction Summary:")
+    print(prediction_summary)
+
+    return prediction_summary
+
+def process_all_tif_files(root_folder, scaler_path, model_path, output_path, chunk_size=50000):
+    """
+    Process all TIFF files in a root folder with chunked processing.
+
+    Parameters
+    ----------
+    root_folder : str
+        Root folder to search for TIFF files.
+    scaler_path : str
+        Path to the saved MinMaxScaler.
+    model_path : str
+        Path to the saved model.
+    output_path : str
+        Path to save the processed TIFF files.
+    chunk_size : int, optional
+        Number of rows to process in each chunk. Default is 50000.
+    """
     # Ensure the output directory exists
     os.makedirs(output_path, exist_ok=True)
 
@@ -387,9 +451,25 @@ if __name__ == "__main__":
         output_tif_path = os.path.join(output_path, file_name.replace(".tif", "_Burn_classified.tif"))
         
         print(f"\nProcessing: {tif_file_path}")
-        result = process_tif_file(tif_file_path, scaler_path, model_path, output_tif_path)
-        display(result)
-        
-        label_counts = result['Burn_Classified'].value_counts()
-        print("\nLabel Counts:")
-        print(label_counts)
+        result = process_tif_file_in_chunks(
+            tif_file_path, 
+            scaler_path, 
+            model_path, 
+            output_tif_path, 
+            chunk_size=chunk_size
+        )
+
+# Example usage
+if __name__ == "__main__":
+    root_folder = r'Raster Classified'
+    scaler_path = r'Export Model/MinMax_Scaler.pkl'
+    model_path = r'Export Model/Model_XGB.sav' # Choose model from Export Model
+    output_path = r'Classified Output'
+
+    process_all_tif_files(
+        root_folder, 
+        scaler_path, 
+        model_path, 
+        output_path, 
+        chunk_size=2048  # Adjust chunk size based on your system's memory
+    )
