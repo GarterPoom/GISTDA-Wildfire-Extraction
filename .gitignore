@@ -1373,7 +1373,6 @@ Classified Image/T47PMR_20230223T034749/T47PMR_20230223T034749_B12_20m.jp2
 Raster Classified/T47PMR_20230223T034749/T47PMR_20230223T034749.tif
 Deep_Learning_Train.ipynb
 sentinel_2_classified_image_processing.py
-sentinel-2_classified_image_processing.py
 Export Model/MinMax_Scaler_DL.pkl
 Export Model/MinMax_Scaler.pkl
 wildfire_classified.py
