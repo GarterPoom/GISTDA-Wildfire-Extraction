@@ -1384,7 +1384,6 @@ Export Model/MinMax_Scaler.pkl
 FCNN_environment.yml
 Model_Train.ipynb
 README.md
-RIDA_environment.yml
 wildfire_raster.py
 Export Model/MinMax_Scaler_FCNN.pkl
 Export Model/MinMax_Scaler.pkl
@@ -1394,9 +1393,6 @@ Export Model/FCNN_model.tf/keras_metadata.pb
 Export Model/FCNN_model.tf/saved_model.pb
 Export Model/FCNN_model.tf/variables/variables.data-00000-of-00001
 Export Model/FCNN_model.tf/variables/variables.index
-RIDA_environment.yml
-RIDA_environment.yml
-RIDA_environment.yml
 Raster_Train/T47QLA_20210226T035719_chunk_4096_4096.tif
 Raster_Train/T46QHM_20230316T040541_chunk_8192_4096.tif
 Export Model/MinMax_Scaler_DL.pkl
