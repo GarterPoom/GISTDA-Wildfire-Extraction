@@ -132,8 +132,7 @@ class SentinelProcessor:
         """
         burn_label = np.where(
             (dnbr > 0.27) & (ndwi < 0) & (ndvi < 0.14) & (b08 < 2500),
-            1,
-            0)
+            1, 0)
 
         burn_label[~np.isfinite(dnbr) | ~np.isfinite(ndwi) | 
                   ~np.isfinite(ndvi) | ~np.isfinite(b08)] = 0
@@ -499,7 +498,7 @@ def main():
 
         # Randomly select files with burn priority and move to Raster_Train
         logger.info("Selecting and moving TIFF files by burn priority to Raster_Train...")
-        processor.move_burn_priority_files(train_dir, max_size_gb=2)
+        processor.move_burn_priority_files(train_dir, max_size_gb=3)
         logger.info("File selection and movement completed.")
 
         # Now check for processed tiles
