@@ -463,7 +463,7 @@ def process_all_tif_files(root_folder, scaler_path, model_path, output_path, chu
 if __name__ == "__main__":
     root_folder = r'Raster Classified'
     scaler_path = r'Export Model/MinMax_Scaler.pkl'
-    model_path = r'Export Model/Model_XGB.sav' # Choose model from Export Model
+    model_path = r'Export Model/choose models between LightGBM and XGBoost' # Choose model from Export Model
     output_path = r'Classified Output'
 
     process_all_tif_files(
@@ -471,5 +471,5 @@ if __name__ == "__main__":
         scaler_path, 
         model_path, 
         output_path, 
-        chunk_size=2048  # Adjust chunk size based on your system's memory
+        chunk_size="Adjust chunk size based on your system's memory"  # Adjust chunk size based on your system's memory
     )
