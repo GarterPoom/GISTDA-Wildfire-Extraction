@@ -160,6 +160,35 @@ def fire_index(df_clean):
     
     return df_clean
 
+def cloud_filter(df_clean):
+
+    """
+    Remove cloudy pixels by setting their values to NaN.
+
+    The method assumes that pixels with Band 8 values greater than 2500 are clouds.
+
+    Parameters
+    ----------
+    df_clean : Pandas DataFrame
+        DataFrame containing the Sentinel-2 bands.
+
+    Returns
+    -------
+    Pandas DataFrame
+        DataFrame with cloudy pixels removed.
+
+    Notes
+    -----
+    The standard Sentinel-2 bands required are: ['Band_1', 'Band_2', 'Band_3', 'Band_4', 'Band_5', 'Band_6', 'Band_7',
+    'Band_8', 'Band_8A', 'Band_9', 'Band_11', 'Band_12', 'NDVI', 'NDWI']
+    """
+    df_clean.loc[df_clean['Band_8'] > 2500] = np.nan
+    df_clean = df_clean.replace([np.inf, -np.inf], np.nan).dropna()
+
+    print("Shape after cloud filtering:", df_clean.shape)
+
+    return df_clean
+
 def normalize_data(df, scaler_path):
     """
     Normalize a Pandas DataFrame using a saved MinMaxScaler.
@@ -381,6 +410,9 @@ def process_tif_file_in_chunks(tif_file_path, scaler_path, model_path, output_ti
         display(df_clean.head())
         print() # Add Blank line
 
+        # Filter cloud
+        df_clean = cloud_filter(df_clean)
+
         # Normalize data
         df_normalized = pd.DataFrame(
             scaler.transform(df_clean), 
@@ -463,7 +495,7 @@ def process_all_tif_files(root_folder, scaler_path, model_path, output_path, chu
 if __name__ == "__main__":
     root_folder = r'Raster Classified'
     scaler_path = r'Export Model/MinMax_Scaler.pkl'
-    model_path = r'Export Model/choose models between LightGBM and XGBoost' # Choose model from Export Model
+    model_path = r'Export Model/Model_XGB.sav' # Choose model from Export Model
     output_path = r'Classified Output'
 
     process_all_tif_files(
@@ -471,5 +503,5 @@ if __name__ == "__main__":
         scaler_path, 
         model_path, 
         output_path, 
-        chunk_size="Adjust chunk size based on your system's memory"  # Adjust chunk size based on your system's memory
+        chunk_size=16384  # Adjust chunk size based on your system's memory
     )
