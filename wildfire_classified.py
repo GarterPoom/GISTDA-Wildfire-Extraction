@@ -128,6 +128,7 @@ def clean_data(df):
     
     df_clean = df.replace([np.inf, -np.inf], np.nan).dropna()
     print("Shape after cleaning data:", df_clean.shape)
+    
     return df_clean
 
 def fire_index(df_clean):
@@ -182,8 +183,7 @@ def cloud_filter(df_clean):
     The standard Sentinel-2 bands required are: ['Band_1', 'Band_2', 'Band_3', 'Band_4', 'Band_5', 'Band_6', 'Band_7',
     'Band_8', 'Band_8A', 'Band_9', 'Band_11', 'Band_12', 'NDVI', 'NDWI']
     """
-    df_clean.loc[df_clean['Band_8'] > 2500] = np.nan
-    df_clean = df_clean.replace([np.inf, -np.inf], np.nan).dropna()
+    df_clean.loc[df_clean['Band_8'] > 2500] = 0
 
     print("Shape after cloud filtering:", df_clean.shape)
 
