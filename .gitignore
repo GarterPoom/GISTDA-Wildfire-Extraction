@@ -3143,3 +3143,4 @@ Classified Output/T48QVE_20241128T033009_Burn_classified.tif
 Classified Output/T48QVE_20241128T033009_cloud_mask.tif
 Classified Output/T48QVE_20241128T033009_cloud_probs.tif
 wildfire_classified_1.py
+classified_image_processing_L1C.py
