@@ -422,7 +422,7 @@ def process_tif_file_in_chunks(tif_file_path, scaler_path, model_path, output_ti
 
     return prediction_summary
 
-def process_all_tif_files(root_folder, scaler_path, model_path, output_path, chunk_size=50000):
+def process_all_tif_files(root_folder, scaler_path, model_path, output_path, chunk_size):
     """
     Process all TIFF files in a root folder with chunked processing.
 
@@ -437,7 +437,7 @@ def process_all_tif_files(root_folder, scaler_path, model_path, output_path, chu
     output_path : str
         Path to save the processed TIFF files.
     chunk_size : int, optional
-        Number of rows to process in each chunk. Default is 50000.
+        Number of rows to process in each chunk.
     """
     # Ensure the output directory exists
     os.makedirs(output_path, exist_ok=True)
