@@ -34,25 +34,25 @@ You would need to download Sentinel-2 Image from ```https://browser.dataspace.co
 ```python
 
 ├── S2A_MSIL2A_20201223T040201_N0500_R004_T47QLA_20230227T185228.SAFE
-│   ├── S2A_MSIL2A_20201223T040201_N0500_R004_T47QLA_20230227T185228.SAFE
-│   │   ├── GRANULE
-│   │   │   ├── L2A_T47QLA_A028744_20201223T041215
-│   │   │   │   ├── IMG_DATA
-│   │   │   │   │   ├── R10m
-│   │   │   │   │   │   ├── T47QLA_20201223T040201_B02_10m.jp2
-│   │   │   │   │   │   ├── T47QLA_20201223T040201_B03_10m.jp2
-│   │   │   │   │   │   ├── T47QLA_20201223T040201_B04_10m.jp2
-│   │   │   │   │   │   ├── T47QLA_20201223T040201_B08_10m.jp2
-                    ├── R20m
-                    │   ├── T47QLA_20201223T040201_B01_20m.jp2
-                    │   ├── T47QLA_20201223T040201_B05_20m.jp2
-                    │   ├── T47QLA_20201223T040201_B06_20m.jp2
-                    │   ├── T47QLA_20201223T040201_B07_20m.jp2
-                    │   ├── T47QLA_20201223T040201_B8A_20m.jp2
-                    │   ├── T47QLA_20201223T040201_B11_20m.jp2
-                    │   ├── T47QLA_20201223T040201_B12_20m.jp2
-                    ├── R60m
-                    │   ├── T47QLA_20201223T040201_B09_60m.jp2
+   ├── S2A_MSIL2A_20201223T040201_N0500_R004_T47QLA_20230227T185228.SAFE
+      ├── GRANULE
+         ├── L2A_T47QLA_A028744_20201223T041215
+            ├── IMG_DATA
+               ├── R10m
+                  ├── T47QLA_20201223T040201_B02_10m.jp2
+                  ├── T47QLA_20201223T040201_B03_10m.jp2
+                  ├── T47QLA_20201223T040201_B04_10m.jp2
+                  ├── T47QLA_20201223T040201_B08_10m.jp2
+                ├── R20m
+                  ├── T47QLA_20201223T040201_B01_20m.jp2
+                  ├── T47QLA_20201223T040201_B05_20m.jp2
+                  ├── T47QLA_20201223T040201_B06_20m.jp2
+                  ├── T47QLA_20201223T040201_B07_20m.jp2
+                  ├── T47QLA_20201223T040201_B8A_20m.jp2
+                  ├── T47QLA_20201223T040201_B11_20m.jp2
+                  ├── T47QLA_20201223T040201_B12_20m.jp2
+                ├── R60m
+                  ├── T47QLA_20201223T040201_B09_60m.jp2
 ```
 ## Python Modules
 ### Sentinel-2 Image Before and After Burn Resampling and Multi-Band Processing Script
@@ -63,7 +63,7 @@ This Python script processes Sentinel-2 imagery by resampling multiple spectral 
 ```sentinel-2_Post-Image.py``` is Module to perform Resampling and Multi-Band Processing for After Burn Images.
 
 Key Features:
-- Resampling: The script reads each band image (e.g., B03, B04, B05) and resamples it to a 10m resolution using bilinear interpolation.
+- Resampling: The script reads each band image (e.g., B03, B04, B05) and resamples it to a 10m resolution using Nearest-neighbor interpolation.
 - Multi-Band Merging: After resampling, the script combines specified bands (B01, B02, B03, B04, B05, B06, B07, B08, B8A, B09, B11, B12) into a single GeoTIFF file.
 - Automated Folder Search: It recursively searches for folders containing Sentinel-2 .jp2 files and processes all relevant imagery automatically.
 - Temporary Files Cleanup: Resampled files are stored temporarily and removed after processing to minimize storage usage.
@@ -96,11 +96,15 @@ GISTDA_BURN EXTRACT
      |_Raster_Train
      |_Wildfire Polygon
 ```
-
-Post-Image/: Directory store Sentinel-2 Image which is After Burn Period as same tile with Pre-Image Folder.
-Pre-Image/: Directory store Sentinel-2 Image which is Before Burn Period as same tile with Post-Image Folder.
-input/: Contains pre- and post-fire images in TIFF format (```pre``` and ```post``` in filenames).
-output/: Stores the processed output for each image tile and chunk.
+- Classified Image/: Directory to store Sentinel-2 Imageries for before begins Forest Fire Detection.
+- Classified Output/: Directory to store Detection Result from Machine Learning as Raster GeoTIFF.
+- Post-Image/: Directory store Sentinel-2 Image which is After Burn Period as same tile with Pre-Image Folder.
+- Pre-Image/: Directory store Sentinel-2 Image which is Before Burn Period as same tile with Post-Image Folder.
+- input/: Contains pre- and post-fire images in TIFF format (```pre``` and ```post``` in filenames).
+- output/: Stores the processed output for each image tile and chunk.
+- Raster Classified/: Directory to store Raster GeoTIFF for perform Forest Fire Detection that have been performed image resampling.
+- Raster_Train/: Directory that moves some areas of GeoTIFF Burn Extraction to this not more than 2GB.
+- Wildfire Polygon/: Directory to store Burn Detection Polygon Area as SHAPE file format.
 
 ### Features
 - Chunked Processing: Handles large images in smaller chunks, reducing memory usage.

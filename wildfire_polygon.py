@@ -1,5 +1,6 @@
 import os
 import re
+import shutil  # To move files to the new folder
 from rasterio.features import shapes
 import geopandas as gpd
 from shapely.geometry import shape
@@ -25,6 +26,26 @@ def find_all_files_in_root(root_folder, file_extension='.tif'):
             if filename.endswith(file_extension):
                 file_paths.append(os.path.join(dirpath, filename))
     return file_paths
+
+def create_output_folder_for_file(input_file_path, output_base_folder):
+    """
+    Create a folder inside the output_base_folder based on the input file name (without extension) to store the outputs.
+    
+    Parameters:
+    - input_file_path: str, the full path of the input file
+    - output_base_folder: str, the base output folder
+    
+    Returns:
+    - str: the created folder path inside output_base_folder
+    """
+    base_name = os.path.splitext(os.path.basename(input_file_path))[0]  # Remove extension
+    output_folder = os.path.join(output_base_folder, base_name)
+    
+    # Create the folder if it doesn't exist
+    if not os.path.exists(output_folder):
+        os.makedirs(output_folder)
+    
+    return output_folder
 
 def extract_fire_date_from_filename(filename):
     """
@@ -109,10 +130,9 @@ def create_polygon_shapefile_from_burnt_areas(tif_file_path, output_folder):
     gdf.to_file(output_shapefile_path, driver='ESRI Shapefile')
     print(f"Polygon shapefile '{output_shapefile_path}' has been created.")
 
-# Example usage
 def main():
     root_folder = r'Classified Output'  # Path to the root folder where the TIFF is located
-    output_folder = r'Wildfire Polygon'  # Path to the folder where the shapefile will be saved
+    output_base_folder = r'Wildfire Polygon'  # Path to the base folder where the output folders will be created
 
     # Find all TIFF files in the root folder and subfolders
     tif_files = find_all_files_in_root(root_folder)
@@ -120,6 +140,11 @@ def main():
     # Process each found TIFF file
     for tif_file_path in tif_files:
         print(f"\nProcessing file: {tif_file_path}")
+        
+        # Create a folder for each file inside the output_base_folder based on its name
+        output_folder = create_output_folder_for_file(tif_file_path, output_base_folder)
+        
+        # Process the file and save the shapefile to the new folder
         create_polygon_shapefile_from_burnt_areas(tif_file_path, output_folder)
 
 if __name__ == "__main__":
