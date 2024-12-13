@@ -148,19 +148,20 @@ class SentinelCloudMasker:
                     band_metadata = band_dataset.meta.copy()
 
                 # Apply cloud mask to each band individually
-                masked_band = np.zeros_like(band_data, dtype=np.float32)
+                masked_band = np.zeros_like(band_data, dtype=np.float32)  # Ensure dtype is float32
                 for i in range(band_data.shape[0]):
-                    masked_band[i] = np.where(cloud_mask, band_data[i], np.nan)  # Apply the cloud mask
+                    # Apply mask: set pixels in CLOUD_CLASSES to NaN
+                    masked_band[i] = np.where(cloud_mask, band_data[i], np.nan)
 
                 # Prepare output metadata
                 band_metadata.update({
                     "driver": "GTiff",
                     "dtype": "float32",
                     "count": masked_band.shape[0],
-                    "compress": "LZW",
-                    "nodata": np.nan
+                    "compress": "LZW"
+                    # Do not set "nodata" explicitly, as NaN is inherently handled
                 })
-
+                
                 # Save masked bands to GeoTIFF
                 output_path = os.path.join(self.output_dir, f"{identifier}_masked.tif")
                 with rasterio.open(output_path, "w", **band_metadata) as dest:
