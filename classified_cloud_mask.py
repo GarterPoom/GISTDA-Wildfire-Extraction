@@ -13,7 +13,7 @@ class SentinelCloudMasker:
     """
     # Cloud classes from Sentinel-2 Scene Classification Layer (SCL)
     CLOUD_CLASSES = {
-        3: "Cloud Shadows",
+        6: "Water",
         8: "Cloud medium probability",
         9: "Cloud high probability", 
         10: "Thin cirrus"
