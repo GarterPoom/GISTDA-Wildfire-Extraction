@@ -4539,3 +4539,5 @@ Classified Output/T48QTF_20241206T034131_masked_Burn_classified.tif
 Classified Output/T48QUF_20241201T034029_masked_Burn_classified.tif
 Classified Output/T48QVD_20241203T033121_masked_Burn_classified.tif
 Classified Output/T48QVE_20241203T033121_masked_Burn_classified.tif
+classified_cloud_mask.py
+wildfire_classified.py
