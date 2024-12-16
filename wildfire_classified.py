@@ -34,13 +34,6 @@ def read_raster_with_nodata(tif_file, chunk_size=10000):
     """
     Read a TIFF file, handling no data and NaN values more robustly.
     
-    Parameters
-    ----------
-    tif_file : str
-        Full path to the TIFF file to be read.
-    chunk_size : int, optional
-        Number of rows to read at a time. Default is 10000.
-
     Returns
     -------
     tuple
@@ -102,18 +95,6 @@ def rename_bands(df):
 def clean_data(df, valid_mask):
     """
     Clean data by applying valid pixel mask and handling NaN/infinite values.
-    
-    Parameters
-    ----------
-    df : Pandas DataFrame
-        DataFrame containing the data to be cleaned.
-    valid_mask : numpy array
-        Boolean mask of valid pixels.
-
-    Returns
-    -------
-    Pandas DataFrame
-        Cleaned DataFrame with valid pixels.
     """
     # Apply valid pixel mask
     df_clean = df[valid_mask].copy()
@@ -147,25 +128,7 @@ def fire_index(df_clean):
 
 def process_tif_file_in_chunks(tif_file_path, scaler_path, model_path, output_tif_path, chunk_size=50000):
     """
-    Process a TIFF file in chunks with robust handling of no data and NaN pixels.
-    
-    Parameters
-    ----------
-    tif_file_path : str
-        Path to the TIFF file to be processed.
-    scaler_path : str
-        Path to the saved MinMaxScaler.
-    model_path : str
-        Path to the saved model.
-    output_tif_path : str
-        Path to the new GeoTIFF file to be created.
-    chunk_size : int, optional
-        Number of rows to process in each chunk. Default is 50000.
-
-    Returns
-    -------
-    dict
-        Summary of predictions
+    Process a TIFF file in chunks with binary output.
     """
     # Read raster with robust no data handling
     df, valid_mask, nodata_value = read_raster_with_nodata(tif_file_path)
@@ -175,8 +138,9 @@ def process_tif_file_in_chunks(tif_file_path, scaler_path, model_path, output_ti
         height, width = src.shape
         original_metadata = src.meta.copy()
 
-    # Prepare the final predictions array with no data value
-    final_predictions = np.full((height * width), nodata_value, dtype=np.float32)
+    # Prepare the final predictions array 
+    # Use 0 as the default value for invalid/no data pixels
+    final_predictions = np.zeros((height * width), dtype=np.uint8)
 
     # Load the model and scaler
     with open(model_path, 'rb') as f:
@@ -212,11 +176,12 @@ def process_tif_file_in_chunks(tif_file_path, scaler_path, model_path, output_ti
     display(df_normalized.head())
     print()
 
-    # Make predictions
+    # Make predictions (expecting binary 0 or 1)
     predictions = model.predict(df_normalized)
 
     # Update final predictions with valid predictions
-    final_predictions[valid_mask.flatten()] = predictions
+    # Ensure only binary values (0 or 1)
+    final_predictions[valid_mask.flatten()] = predictions.astype(np.uint8)
 
     # Reshape predictions to original raster shape
     final_predictions_2d = final_predictions.reshape(height, width)
@@ -224,18 +189,18 @@ def process_tif_file_in_chunks(tif_file_path, scaler_path, model_path, output_ti
     # Create the output GeoTIFF
     updated_metadata = original_metadata.copy()
     updated_metadata.update({
-        'dtype': 'float32',
+        'dtype': 'uint8',  # Change to uint8 for binary output
         'count': 1,
+        'nodata': 0  # Use 0 as no data value
     })
 
     with rio.open(output_tif_path, 'w', **updated_metadata) as new_img:
-        new_img.write(final_predictions_2d.astype(np.float32), 1)
+        new_img.write(final_predictions_2d, 1)
 
     print(f"New GeoTIFF file '{output_tif_path}' has been created.")
 
-    # Return summary of predictions, excluding nodata values
-    valid_predictions = final_predictions_2d[final_predictions_2d != nodata_value]
-    unique, counts = np.unique(valid_predictions, return_counts=True)
+    # Return summary of predictions
+    unique, counts = np.unique(final_predictions_2d, return_counts=True)
     prediction_summary = dict(zip(unique, counts))
     print("\nPrediction Summary:")
     print(prediction_summary)
@@ -244,7 +209,7 @@ def process_tif_file_in_chunks(tif_file_path, scaler_path, model_path, output_ti
 
 def process_all_tif_files(root_folder, scaler_path, model_path, output_path, chunk_size=50000):
     """
-    Process all TIFF files in a root folder with robust no data handling.
+    Process all TIFF files in a root folder with binary output.
     """
     # Ensure the output directory exists
     os.makedirs(output_path, exist_ok=True)
