@@ -422,7 +422,7 @@ def process_tif_file_in_chunks(tif_file_path, scaler_path, model_path, output_ti
 
     return prediction_summary
 
-def process_all_tif_files(root_folder, scaler_path, model_path, output_path, chunk_size):
+def process_all_tif_files(root_folder, scaler_path, model_path, output_path, chunk_size=50000):
     """
     Process all TIFF files in a root folder with chunked processing.
 
@@ -437,7 +437,7 @@ def process_all_tif_files(root_folder, scaler_path, model_path, output_path, chu
     output_path : str
         Path to save the processed TIFF files.
     chunk_size : int, optional
-        Number of rows to process in each chunk.
+        Number of rows to process in each chunk. Default is 50000.
     """
     # Ensure the output directory exists
     os.makedirs(output_path, exist_ok=True)
@@ -462,7 +462,7 @@ def process_all_tif_files(root_folder, scaler_path, model_path, output_path, chu
 
 # Example usage
 if __name__ == "__main__":
-    root_folder = r'Raster Classified Cloud Mask'
+    root_folder = r'Raster Classified'
     scaler_path = r'Export Model/MinMax_Scaler.pkl'
     model_path = r'Export Model/Model_XGB.sav' # Choose model from Export Model
     output_path = r'Classified Output'
@@ -472,5 +472,5 @@ if __name__ == "__main__":
         scaler_path, 
         model_path, 
         output_path, 
-        chunk_size=4096  # Adjust chunk size based on your system's memory
+        chunk_size=512  # Adjust chunk size based on your system's memory
     )
