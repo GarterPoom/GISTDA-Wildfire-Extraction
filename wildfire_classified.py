@@ -167,6 +167,12 @@ def process_tif_file_in_chunks(tif_file_path, scaler_path, model_path, output_ti
     display(df_clean.head())
     print()
 
+    # Filter the DataFrame to only include rows where NDWI is less than 0.5
+    df_clean = df_clean[df_clean['NDWI'] < 0.5]
+
+    # Get the indices of the remaining valid pixels after filtering
+    valid_indices = df_clean.index
+
     # Normalize data
     df_normalized = pd.DataFrame(
         scaler.transform(df_clean), 
@@ -179,9 +185,8 @@ def process_tif_file_in_chunks(tif_file_path, scaler_path, model_path, output_ti
     # Make predictions (expecting binary 0 or 1)
     predictions = model.predict(df_normalized)
 
-    # Update final predictions with valid predictions
-    # Ensure only binary values (0 or 1)
-    final_predictions[valid_mask.flatten()] = predictions.astype(np.uint8)
+    # Update final predictions only for the filtered valid pixels
+    final_predictions[valid_indices] = predictions.astype(np.uint8)
 
     # Reshape predictions to original raster shape
     final_predictions_2d = final_predictions.reshape(height, width)
