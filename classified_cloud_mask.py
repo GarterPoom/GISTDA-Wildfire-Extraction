@@ -128,7 +128,8 @@ class SentinelCloudMasker:
                         "PREDICTOR=3",         # Predictor for float32
                         "TILED=YES",           # Enable tiling
                         "BLOCKXSIZE=256",      # Tile width
-                        "BLOCKYSIZE=256",      # Tile height
+                        "BLOCKYSIZE=256",
+                        "BIGTIFF=YES"          # Tile height
                     ]
                 )
             )
