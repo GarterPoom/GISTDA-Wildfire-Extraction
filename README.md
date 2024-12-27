@@ -93,7 +93,8 @@ GISTDA_BURN EXTRACT
         |_input
         |_output
      |_Raster Classified
-     |_Raster_Train
+     |_Raster Classified Cloud Mask
+     |_SCL Classified
      |_Wildfire Polygon
 ```
 - Classified Image/: Directory to store Sentinel-2 Imageries for before begins Forest Fire Detection.
@@ -103,7 +104,8 @@ GISTDA_BURN EXTRACT
 - input/: Contains pre- and post-fire images in TIFF format (```pre``` and ```post``` in filenames).
 - output/: Stores the processed output for each image tile and chunk.
 - Raster Classified/: Directory to store Raster GeoTIFF for perform Forest Fire Detection that have been performed image resampling.
-- Raster_Train/: Directory that moves some areas of GeoTIFF Burn Extraction to this not more than 2GB.
+- Raster Classified Cloud Mask/: Directory Store Raster GeoTIFF that have been making cloud, cloud shadow and water masking.
+- SCL Classified/: This directory store Scene Classification (SCL) as tif file which converted from jp2 in each imagery that you acquire and store in Classified Image Directory. 
 - Wildfire Polygon/: Directory to store Burn Detection Polygon Area as SHAPE file format.
 
 ### Features
@@ -122,6 +124,65 @@ From Above image, display area masking as burn will be show as white color when 
 
 Which burn area will be display as strong purple color and active file display as orange. For pink color that display as Landuse or bare soil and built-up areas. Vegetation in various shades of green.
 
-## Collaboration
+## Wildfire Detection
+After finished Burn Extractions, and you would need to use Machine Learning have been trained to detection for new imagery. This pipeline will perform detection for new imagery that Machine Learning have not been see before.
 
+### Detection Directory
+
+```python
+
+├── S2A_MSIL2A_20201223T040201_N0500_R004_T47QLA_20230227T185228.SAFE
+   ├── S2A_MSIL2A_20201223T040201_N0500_R004_T47QLA_20230227T185228.SAFE
+      ├── GRANULE
+         ├── L2A_T47QLA_A028744_20201223T041215
+            ├── IMG_DATA
+               ├── R10m
+                  ├── T47QLA_20201223T040201_B02_10m.jp2
+                  ├── T47QLA_20201223T040201_B03_10m.jp2
+                  ├── T47QLA_20201223T040201_B04_10m.jp2
+                  ├── T47QLA_20201223T040201_B08_10m.jp2
+                ├── R20m
+                  ├── T47QLA_20201223T040201_B01_20m.jp2
+                  ├── T47QLA_20201223T040201_B05_20m.jp2
+                  ├── T47QLA_20201223T040201_B06_20m.jp2
+                  ├── T47QLA_20201223T040201_B07_20m.jp2
+                  ├── T47QLA_20201223T040201_B8A_20m.jp2
+                  ├── T47QLA_20201223T040201_B11_20m.jp2
+                  ├── T47QLA_20201223T040201_B12_20m.jp2
+                  ├── T47QLA_20201223T040201_SCL_20m.jp2
+                ├── R60m
+                  ├── T47QLA_20201223T040201_B09_60m.jp2
+```
+### Classified Cloud Mask
+The ```classified_cloud_mask.py``` script processes Sentinel-2 satellite imagery to apply cloud masks and save the results as compressed GeoTIFF files. It reads the Sentinel-2 Scene Classification Layer (SCL) and band data, applies cloud masks, and saves the masked images.
+
+#### Key Features:
+- Reading SCL and Band Data: The script reads Sentinel-2 Scene Classification Layer (SCL) and band data.
+- Cloud Masking: Applies cloud masks to the band data based on the SCL.
+- Logging: Provides detailed logging for each step of the process.
+- Error Handling: Catches and logs errors during processing.
+- Output: Saves the masked images as compressed GeoTIFF files.
+
+### Wildfire Classification
+The ```wildfire_classified.py``` script processes Sentinel-2 satellite imagery to classify burned areas using machine learning. The script reads raster data, cleans it, calculates fire indices, and applies a pre-trained model to classify burned areas. The results are saved as GeoTIFF files.
+
+#### Key Features:
+- Reading Raster Data: The script reads Sentinel-2 imagery, handling no data and NaN values robustly.
+- Data Cleaning: It applies a valid pixel mask and handles NaN/infinite values to clean the data.
+- Fire Indices Calculation: Computes normalized difference vegetation index (NDVI) and normalized difference water index (NDWI) to analyze fire impact.
+- Machine Learning Classification: Uses a pre-trained model to classify burned areas based on the calculated indices.
+- Chunked Processing: Handles large images in smaller chunks, reducing memory usage.
+- Output: Saves the classification results as GeoTIFF files with binary output indicating burned areas.
+
+### Wildfire Polygon Extraction
+The ```wildfire_polygon.py``` script processes classified GeoTIFF files to generate polygon shapefiles representing burnt areas. The script searches for all TIFF files in a specified root folder and its subfolders, creates an output folder for each file, and generates polygons where the pixel value is 1 (indicating burnt areas) in the GeoTIFF. The polygons are saved as shapefiles in the output folder.
+
+Key Features:
+- Recursive Search: Finds all TIFF files in the root folder and its subfolders.
+- Output Folder Creation: Creates a folder for each TIFF file inside the specified output base folder.
+- Polygon Shapefile Generation: Generates polygons for burnt areas and saves them as shapefiles.
+- Metadata Extraction: Extracts fire date from the TIFF file name and adds it to the shapefile attributes.
+- Geospatial Data Handling: Converts CRS to Latitude and Longitude, calculates centroids, and computes the area of each polygon.
+
+## Collaboration
 ![png](verythank.png)
