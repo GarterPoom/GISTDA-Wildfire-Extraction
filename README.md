@@ -51,6 +51,7 @@ You would need to download Sentinel-2 Image from ```https://browser.dataspace.co
                   ├── T47QLA_20201223T040201_B8A_20m.jp2
                   ├── T47QLA_20201223T040201_B11_20m.jp2
                   ├── T47QLA_20201223T040201_B12_20m.jp2
+                  ├── T47QLA_20201223T040201_SCL_20m.jp2
                 ├── R60m
                   ├── T47QLA_20201223T040201_B09_60m.jp2
 ```
@@ -94,6 +95,7 @@ GISTDA_BURN EXTRACT
         |_output
      |_Raster Classified
      |_Raster_Train
+     |_SCL Classified
      |_Wildfire Polygon
 ```
 - Classified Image/: Directory to store Sentinel-2 Imageries for before begins Forest Fire Detection.
@@ -103,7 +105,8 @@ GISTDA_BURN EXTRACT
 - input/: Contains pre- and post-fire images in TIFF format (```pre``` and ```post``` in filenames).
 - output/: Stores the processed output for each image tile and chunk.
 - Raster Classified/: Directory to store Raster GeoTIFF for perform Forest Fire Detection that have been performed image resampling.
-- Raster_Train/: Directory that moves some areas of GeoTIFF Burn Extraction to this not more than 2GB.
+- Raster_Train/: Directory that moves some areas of GeoTIFF Burn Extraction to this not more than 10GB (WIth Current Hardware Specification we used.)
+- SCL Classified/: Directory to store SCL for use to masking Cloud and Cloud Shadows out from image before detection.
 - Wildfire Polygon/: Directory to store Burn Detection Polygon Area as SHAPE file format.
 
 ### Features
