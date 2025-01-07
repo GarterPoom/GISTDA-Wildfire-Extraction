@@ -425,6 +425,59 @@ class SentinelProcessor:
                 df.attrs['index_stats'] = stats
             
                 return df
+            
+    def move_burn_priority_files(self, destination_dir, max_size_gb):
+        """
+        Randomly selects TIFF files with priority given to those with the highest burn area, 
+        and moves them to the specified destination directory.
+    
+        Args:
+            destination_dir (str): Path to the destination directory.
+            max_size_gb (int): Maximum total size of selected files in gigabytes (default: 5).
+        """
+        destination_dir = Path(destination_dir).resolve()
+        destination_dir.mkdir(parents=True, exist_ok=True)
+    
+        tiff_files = list(self.output_dir.rglob("*.tif"))
+        if not tiff_files:
+            logger.warning("No TIFF files found in output directory.")
+            return
+    
+        # Calculate burn area for each file
+        file_burn_areas = []
+        for file_path in tiff_files:
+            try:
+                with rasterio.open(file_path) as src:
+                    burn_label_band = src.read(src.count)  # Burn_Label is the last band
+                    burn_area = np.sum(burn_label_band == 1)  # Count burn pixels
+                    file_size = file_path.stat().st_size
+                    file_burn_areas.append((file_path, burn_area, file_size))
+            except Exception as e:
+                logger.error(f"Error reading file {file_path}: {str(e)}")
+    
+        # Sort files by burn area (descending)
+        file_burn_areas.sort(key=lambda x: x[1], reverse=True)
+    
+        # Select files until size limit is reached
+        selected_files = []
+        total_size = 0
+        max_size_bytes = max_size_gb * 1024 * 1024 * 1024  # Convert GB to bytes
+    
+        for file_path, burn_area, file_size in file_burn_areas:
+            if total_size + file_size > max_size_bytes:
+                break
+            selected_files.append(file_path)
+            total_size += file_size
+    
+        logger.info(f"Selected {len(selected_files)} files with total size {total_size / (1024**3):.2f} GB")
+    
+        # Move files to the destination directory
+        for file_path in selected_files:
+            destination_path = destination_dir / file_path.name
+            shutil.move(str(file_path), str(destination_path))
+            logger.info(f"Moved file: {file_path} -> {destination_path}")
+    
+        logger.info(f"All selected files moved to {destination_dir}")
 
 def main():
     """Main entry point for the script."""
@@ -442,6 +495,11 @@ def main():
         logger.info(f"Processing Sentinel-2 images in {root_dir}...")
         processor.process_all(max_workers=2)
         logger.info("Processing completed successfully")
+
+        # Randomly select files with burn priority and move to Raster_Train
+        logger.info("Selecting and moving TIFF files by burn priority to Raster_Train...")
+        processor.move_burn_priority_files(train_dir, max_size_gb=15)
+        logger.info("File selection and movement completed.")
 
         # Now check for processed tiles
         processed_tiles = [d.name.split('_')[0] for d in processor.output_dir.iterdir() if d.is_dir()]
