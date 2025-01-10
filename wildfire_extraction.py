@@ -498,7 +498,7 @@ def main():
 
         # Randomly select files with burn priority and move to Raster_Train
         logger.info("Selecting and moving TIFF files by burn priority to Raster_Train...")
-        processor.move_burn_priority_files(train_dir, max_size_gb=5)
+        processor.move_burn_priority_files(train_dir, max_size_gb=10)
         logger.info("File selection and movement completed.")
 
         # Now check for processed tiles

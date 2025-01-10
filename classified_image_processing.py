@@ -288,14 +288,14 @@ def main():
         logger.info(f"Current working directory: {current_dir}")
 
         # Check input folders
-        root_folder = current_dir / 'Classified Image'
-        output_folder = current_dir / 'Raster Classified'
-        scl_output_folder = current_dir / 'SCL Classified'
+        root_folder = current_dir / 'Classified_Image'
+        output_folder = current_dir / 'Raster_Classified'
+        scl_output_folder = current_dir / 'SCL_Classified'
 
         # Check if input folder exists
         if not root_folder.exists():
             logger.error(f"Input folder does not exist: {root_folder}")
-            logger.info("Please create a 'Classified Image' folder and place Sentinel-2 JP2 files inside.")
+            logger.info("Please create a 'Classified_Image' folder and place Sentinel-2 JP2 files inside.")
             sys.exit(1)
 
         # Create output folders if they don't exist
@@ -307,7 +307,7 @@ def main():
         
         if not jp2_files:
             logger.error(f"No JP2 files found in {root_folder}")
-            logger.info("Ensure Sentinel-2 JP2 files are present in the 'Classified Image' folder.")
+            logger.info("Ensure Sentinel-2 JP2 files are present in the 'Classified_Image' folder.")
             sys.exit(1)
 
         logger.info(f"Found {len(jp2_files)} JP2 files to process")

@@ -128,7 +128,8 @@ class SentinelCloudMasker:
                         "PREDICTOR=3",         # Predictor for float32
                         "TILED=YES",           # Enable tiling
                         "BLOCKXSIZE=256",      # Tile width
-                        "BLOCKYSIZE=256",      # Tile height
+                        "BLOCKYSIZE=256",
+                        "BIGTIFF=YES"          # Tile height
                     ]
                 )
             )
@@ -146,9 +147,9 @@ class SentinelCloudMasker:
 
 def main():
     try:
-        scl_dir = "SCL Classified"
-        band_dir = "Raster Classified"
-        output_dir = "Raster Classified Cloud Mask"
+        scl_dir = 'SCL_Classified'
+        band_dir = 'Raster_Classified'
+        output_dir = "Raster_Classified_Cloud_Mask"
 
         cloud_masker = SentinelCloudMasker(
             scl_dir,

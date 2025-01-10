@@ -1,1 +1,0 @@
-This Directory for store Raster Files that you need to choose some area in output sub-folder in Raster Folder.

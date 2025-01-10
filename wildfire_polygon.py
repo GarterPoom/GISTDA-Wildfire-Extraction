@@ -131,8 +131,8 @@ def create_polygon_shapefile_from_burnt_areas(tif_file_path, output_folder):
     print(f"Polygon shapefile '{output_shapefile_path}' has been created.")
 
 def main():
-    root_folder = r'Classified Output'  # Path to the root folder where the TIFF is located
-    output_base_folder = r'Wildfire Polygon'  # Path to the base folder where the output folders will be created
+    root_folder = r'Classified_Output'  # Path to the root folder where the TIFF is located
+    output_base_folder = r'Wildfire_Polygon'  # Path to the base folder where the output folders will be created
 
     # Find all TIFF files in the root folder and subfolders
     tif_files = find_all_files_in_root(root_folder)

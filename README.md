@@ -15,6 +15,9 @@ Environment Prepare step:
 - use following command: ```conda env create -f /path/to/folder/environment.yml```
 Example: ```conda env create -f "D:\Sentinel-2 Environment\environment.yml"```
 
+## Workflow of Program
+![jpg](GISTDA-Wildfire-Extraction.jpg)
+
 ### Sentinel-2 Imagery
 You would need to download Sentinel-2 Image from ```https://browser.dataspace.copernicus.eu/``` And then next step:
 - Search area that you interest including before and after burn period. Which both of period need to be same tile.
@@ -51,6 +54,7 @@ You would need to download Sentinel-2 Image from ```https://browser.dataspace.co
                   ├── T47QLA_20201223T040201_B8A_20m.jp2
                   ├── T47QLA_20201223T040201_B11_20m.jp2
                   ├── T47QLA_20201223T040201_B12_20m.jp2
+                  ├── T47QLA_20201223T040201_SCL_20m.jp2
                 ├── R60m
                   ├── T47QLA_20201223T040201_B09_60m.jp2
 ```
@@ -85,25 +89,29 @@ The script expects the following folder structure:
 ```python
 
 GISTDA_BURN EXTRACT
-     |_Classified Image
-     |_Classified Output
-     |_Post-Image
-     |_Pre-Image
+     |_Classified_Image
+     |_Classified_Output
+     |_Post_Image
+     |_Pre_Image
      |_Raster
         |_input
         |_output
-     |_Raster Classified
+     |_Raster_Classified
+     |_Raster_Classified_Cloud_Mask
      |_Raster_Train
-     |_Wildfire Polygon
+     |_SCL_Classified
+     |_Wildfire_Polygon
 ```
-- Classified Image/: Directory to store Sentinel-2 Imageries for before begins Forest Fire Detection.
-- Classified Output/: Directory to store Detection Result from Machine Learning as Raster GeoTIFF.
-- Post-Image/: Directory store Sentinel-2 Image which is After Burn Period as same tile with Pre-Image Folder.
-- Pre-Image/: Directory store Sentinel-2 Image which is Before Burn Period as same tile with Post-Image Folder.
+- Classified_Image/: Directory to store Sentinel-2 Imageries for before begins Forest Fire Detection.
+- Classified_Output/: Directory to store Detection Result from Machine Learning as Raster GeoTIFF.
+- Post_Image/: Directory store Sentinel-2 Image which is After Burn Period as same tile with Pre-Image Folder.
+- Pre_Image/: Directory store Sentinel-2 Image which is Before Burn Period as same tile with Post-Image Folder.
 - input/: Contains pre- and post-fire images in TIFF format (```pre``` and ```post``` in filenames).
 - output/: Stores the processed output for each image tile and chunk.
-- Raster Classified/: Directory to store Raster GeoTIFF for perform Forest Fire Detection that have been performed image resampling.
-- Raster_Train/: Directory that moves some areas of GeoTIFF Burn Extraction to this not more than 2GB.
+- Raster_Classified/: Directory to store Raster GeoTIFF for perform Forest Fire Detection that have been performed image resampling.
+- Raster_Classified_Cloud_Mask/: Directory Store Raster GeoTIFF that have been making cloud and water masking.
+- Raster_Train/: Directory that moves some areas of GeoTIFF Burn Extraction to this not more than 10GB (WIth Current Hardware Specification we used.)
+- SCL Classified/: Directory to store SCL for use to masking Cloud and Cloud Shadows out from image before detection.
 - Wildfire Polygon/: Directory to store Burn Detection Polygon Area as SHAPE file format.
 
 ### Features
