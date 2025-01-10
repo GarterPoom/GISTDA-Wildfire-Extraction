@@ -25,7 +25,7 @@ class SentinelCloudMasker:
     }
     
     # Define chunk size for processing (adjust based on available memory)
-    CHUNK_SIZE = 1024  # Process 1024x1024 pixel chunks at a time
+    CHUNK_SIZE = 2048  # Process 1024x1024 pixel chunks at a time
 
     def __init__(self, scl_dir: str, band_dir: str, output_dir: str, log_level: int = logging.INFO):
         """

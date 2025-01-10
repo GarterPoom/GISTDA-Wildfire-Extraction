@@ -30,17 +30,11 @@ def find_tif_files(root_folder):
                 tif_files.append(os.path.join(subdir, file))
     return tif_files
 
-def read_raster_with_nodata(tif_file, chunk_size=10000):
+def read_raster_with_nodata(tif_file, chunk_size=1000):  # Reduced from 10000 to 1000
     """
-    Read a TIFF file, handling no data and NaN values more robustly.
-    
-    Returns
-    -------
-    tuple
-        DataFrame with raster data, valid data mask, and nodata value
+    Memory-optimized raster reading function
     """
     with rio.open(tif_file) as src:
-        # Print metadata
         print(f"\nProcessing file: {tif_file}")
         print("\nMetadata:")
         for key, value in src.meta.items():
@@ -58,26 +52,30 @@ def read_raster_with_nodata(tif_file, chunk_size=10000):
         mask_list = []
         
         for i in range(0, height, chunk_size):
-            # Read data chunk
-            data_chunk = src.read(window=rio.windows.Window(0, i, width, min(chunk_size, height - i)))
+            chunk_height = min(chunk_size, height - i)
+            window = rio.windows.Window(0, i, width, chunk_height)
             
-            # Create mask for valid pixels
+            # Read as float32 instead of float64
+            data_chunk = src.read(window=window).astype(np.float32)
+            
+            # Optimize mask creation
             if nodata_value is not None:
-                valid_mask = ~np.isclose(data_chunk, nodata_value, equal_nan=True)
+                valid_mask = ~np.isclose(data_chunk, nodata_value, rtol=1e-05, atol=1e-08, equal_nan=True)
             else:
                 valid_mask = ~np.isnan(data_chunk)
             
-            # Reshape data
-            reshaped_data_chunk = data_chunk.reshape(data_chunk.shape[0], -1).T
-            df_chunk = pd.DataFrame(reshaped_data_chunk, columns=[f'Band_{i+1}' for i in range(data_chunk.shape[0])])
+            # Optimize reshaping
+            reshaped_data = data_chunk.reshape(data_chunk.shape[0], -1).T
+            df_chunk = pd.DataFrame(reshaped_data, columns=[f'Band_{i+1}' for i in range(data_chunk.shape[0])])
             
-            # Reshape mask
-            reshaped_mask_chunk = valid_mask.reshape(valid_mask.shape[0], -1).T
-            mask_chunk = reshaped_mask_chunk.all(axis=1)
+            mask_chunk = valid_mask.reshape(valid_mask.shape[0], -1).T.all(axis=1)
             
             df_list.append(df_chunk)
             mask_list.append(mask_chunk)
-        
+            
+            # Force garbage collection after each chunk
+            del data_chunk, valid_mask, reshaped_data
+            
         df = pd.concat(df_list, ignore_index=True)
         valid_mask = np.concatenate(mask_list)
         
@@ -239,9 +237,9 @@ def process_all_tif_files(root_folder, scaler_path, model_path, output_path, chu
 
 # Example usage
 if __name__ == "__main__":
-    root_folder = r'Raster Classified Cloud Mask'
+    root_folder = r'Raster Classified Cloud Mask' # Root directory containing TIFF files for classification
     scaler_path = r'Export Model/MinMax_Scaler.pkl'
-    model_path = r'Export Model/Model_XGB.sav'
+    model_path = r'Export Model/Model_XGB.sav' # Choose from Export Model folder
     output_path = r'Classified Output'
 
     process_all_tif_files(
@@ -249,5 +247,5 @@ if __name__ == "__main__":
         scaler_path, 
         model_path, 
         output_path, 
-        chunk_size=2048
+        chunk_size=512 # Adjust following your hardware specification
     )
