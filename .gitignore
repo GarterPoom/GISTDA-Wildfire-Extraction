@@ -5171,6 +5171,19 @@ Raster Classified Cloud Mask/T48QVD_20241208T033039/T48QVD_20241208T033039.tif
 Raster Classified Cloud Mask/T48QVE_20241203T033121/T48QVE_20241203T033121.tif
 Raster Classified Cloud Mask/T48QVE_20241208T033039/T48QVE_20241208T033039.tif
 <<<<<<< HEAD
+Deep Learning_Train.ipynb
+Deep Learning_Train.ipynb
+Deep Learning_Train.ipynb
+GISTDA-Wildfire-Extraction.jpg
+Model_Train.ipynb
+wildfire_classified.py
+wildfire_deep_learning_classified.py
+Deep Learning_Train.ipynb
+Model_Train.ipynb
+wildfire_classified.py
+wildfire_deep_learning_classified.py
+=======
+<<<<<<< HEAD
 Classified Image/T47PMS_20241214T035059/T47PMS_20241214T035059_B01_20m.jp2
 Classified Image/T47PMS_20241214T035059/T47PMS_20241214T035059_B02_10m.jp2
 Classified Image/T47PMS_20241214T035059/T47PMS_20241214T035059_B03_10m.jp2
@@ -9857,6 +9870,7 @@ Classified_Image/T48QVE_20241223T033151/T48QVE_20241223T033151_B09_60m.jp2
 Classified_Image/T48QVE_20241223T033151/T48QVE_20241223T033151_B11_20m.jp2
 Classified_Image/T48QVE_20241223T033151/T48QVE_20241223T033151_B12_20m.jp2
 Classified_Image/T48QVE_20241223T033151/T48QVE_20241223T033151_SCL_20m.jp2
+<<<<<<< HEAD
 Raster_Classified/T47PMR_20241209T035141/T47PMR_20241209T035141.tif
 Raster_Classified/T47PMR_20241219T035151/T47PMR_20241219T035151.tif
 Raster_Classified/T47PMR_20241229T035151/T47PMR_20241229T035151.tif
@@ -10334,3 +10348,6 @@ Wildfire_Polygon/T48QVE_20241223T033151_masked_Burn_classified/T48QVE_20241223T0
 Wildfire_Polygon/T48QVE_20241223T033151_masked_Burn_classified/T48QVE_20241223T033151_masked_Burn_classified_Burn_classified.prj
 Wildfire_Polygon/T48QVE_20241223T033151_masked_Burn_classified/T48QVE_20241223T033151_masked_Burn_classified_Burn_classified.shp
 Wildfire_Polygon/T48QVE_20241223T033151_masked_Burn_classified/T48QVE_20241223T033151_masked_Burn_classified_Burn_classified.shx
+=======
+>>>>>>> 1a85c4fd1928ef8f1f21735b5675b0bf17704530
+>>>>>>> ab3573a7be8e06bdd96fc07f8b6419fb827d3511
