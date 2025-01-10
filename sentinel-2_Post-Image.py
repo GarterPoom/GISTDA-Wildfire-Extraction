@@ -168,7 +168,7 @@ if __name__ == "__main__":
     # Enable GDAL exceptions
     gdal.UseExceptions()
 
-    root_folder = Path('Post-Image')
+    root_folder = Path('Post_Image')
     output_folder = Path('Raster/input')
     output_folder.mkdir(parents=True, exist_ok=True)
     find_and_process_folders(root_folder, output_folder)

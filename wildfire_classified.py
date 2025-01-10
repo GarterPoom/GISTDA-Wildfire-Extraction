@@ -237,10 +237,17 @@ def process_all_tif_files(root_folder, scaler_path, model_path, output_path, chu
 
 # Example usage
 if __name__ == "__main__":
+<<<<<<< HEAD
     root_folder = r'Raster Classified Cloud Mask' # Root directory containing TIFF files for classification
     scaler_path = r'Export Model/MinMax_Scaler.pkl'
     model_path = r'Export Model/Model_XGB.sav' # Choose from Export Model folder
     output_path = r'Classified Output'
+=======
+    root_folder = r'Raster_Classified_Cloud_Mask'
+    scaler_path = r'Export_Model/MinMax_Scaler.pkl'
+    model_path = r'Export_Model/Model_XGB.sav'
+    output_path = r'Classified_Output'
+>>>>>>> 3643d68bcd17b7a95092c05a142dab17e5ea857a
 
     process_all_tif_files(
         root_folder, 
