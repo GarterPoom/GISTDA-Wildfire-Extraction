@@ -238,7 +238,16 @@ def process_all_tif_files(root_folder, scaler_path, model_path, output_path, chu
         )
 
 # Example usage
-if __name__ == "__main__":
+def main():
+    """
+    Example usage of the script.
+
+    Process all classified TIFF files in 'Raster_Classified_Cloud_Mask' folder,
+    using the scaler and model from 'Export_Model' folder, and save the results
+    in 'Classified_Output' folder.
+
+    The chunk size is set to 2048 for processing the files in chunks.
+    """
     root_folder = r'Raster_Classified_Cloud_Mask'
     scaler_path = r'Export_Model/MinMax_Scaler.pkl'
     model_path = r'Export_Model/Model_XGB.sav'
@@ -251,3 +260,6 @@ if __name__ == "__main__":
         output_path, 
         chunk_size=2048
     )
+
+if __name__ == "__main__":
+    main()
