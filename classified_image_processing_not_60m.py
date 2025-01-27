@@ -140,9 +140,8 @@ def process_bands(input_folder, output_folder, scl_output_folder=None):
                 
                 # Band mapping
                 band_map = {
-                    'B01': 'B01', 'B02': 'B02', 'B03': 'B03', 'B04': 'B04',
-                    'B05': 'B05', 'B06': 'B06', 'B07': 'B07', 'B08': 'B08',
-                    'B8A': 'B8A', 'B09': 'B09', 'B11': 'B11', 'B12': 'B12'
+                    'B02': 'B02', 'B03': 'B03', 'B04': 'B04', 'B05': 'B05', 'B06': 'B06', 'B07': 'B07', 
+                    'B08': 'B08', 'B8A': 'B8A', 'B11': 'B11', 'B12': 'B12'
                 }
                 
                 # Check for SCL file
@@ -156,8 +155,8 @@ def process_bands(input_folder, output_folder, scl_output_folder=None):
                         break
 
         # Process regular bands
-        ordered_bands = ['B01', 'B02', 'B03', 'B04', 'B05', 'B06', 'B07', 
-                        'B08', 'B8A', 'B09', 'B11', 'B12']
+        ordered_bands = ['B02', 'B03', 'B04', 'B05', 'B06', 'B07', 
+                        'B08', 'B8A', 'B11', 'B12']
         final_resampled_files = [band_paths[band] for band in ordered_bands 
                                if band in band_paths]
 
