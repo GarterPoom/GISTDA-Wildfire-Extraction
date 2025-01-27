@@ -49,7 +49,6 @@ class SentinelCloudMasker:
         self.band_files = self._get_band_file_mapping(self.band_dir)
 
     def _validate_directories(self, *dirs: str) -> None:
-<<<<<<< HEAD
         """
         Validate a list of directories.
 
@@ -61,9 +60,6 @@ class SentinelCloudMasker:
         Raises:
             ValueError: If any of the directories do not exist, are not directories, or are not readable.
         """
-=======
-        """Validate directory existence and permissions."""
->>>>>>> fbdce14f4ddc0a87a676b14a7ead757dabc12735
         for dir_path in dirs:
             path = Path(dir_path)
             if not path.exists():
@@ -73,7 +69,6 @@ class SentinelCloudMasker:
             if not os.access(path, os.R_OK):
                 raise ValueError(f"Directory not readable: {dir_path}")
 
-<<<<<<< HEAD
     def _get_file_mapping(self, directory: str, suffix: str) -> dict:
         """
         Create a mapping of file identifiers to full file paths for a given directory and suffix.
@@ -85,10 +80,6 @@ class SentinelCloudMasker:
         Returns:
             dict: Mapping of file identifiers to full file paths.
         """
-=======
-    def _get_file_mapping(self, directory: Path, suffix: str) -> dict:
-        """Create a mapping of identifiers to file paths for SCL files."""
->>>>>>> fbdce14f4ddc0a87a676b14a7ead757dabc12735
         file_mapping = {}
         for file_path in directory.rglob(f"*{suffix}"):
             # Extract tile ID and date from filename (e.g., T47PPT_20241221T034059)
@@ -97,7 +88,6 @@ class SentinelCloudMasker:
             self.logger.debug(f"Found SCL file: {identifier} -> {file_path}")
         return file_mapping
 
-<<<<<<< HEAD
     def _load_scl_layer(self, file_path: str) -> typing.Tuple[np.ndarray, Affine, CRS]:
         """
         Load a Sentinel-2 Scene Classification Layer (SCL) file and return its data, transform and CRS.
@@ -154,66 +144,6 @@ class SentinelCloudMasker:
         """
         os.makedirs(self.output_dir, exist_ok=True)
 
-=======
-    def _get_band_file_mapping(self, directory: Path) -> dict:
-        """Create a mapping of identifiers to file paths for band files, handling subfolders."""
-        file_mapping = {}
-        # Walk through all subfolders
-        for file_path in directory.rglob("*.tif"):
-            if '_SCL.tif' not in str(file_path):  # Skip SCL files if they exist in band directory
-                # Extract the base identifier (tile ID and date) from the filename
-                filename = file_path.stem
-                # Look for patterns like T47PPT_20241221T034059
-                for scl_id in self.scl_files.keys():
-                    if scl_id in filename:
-                        file_mapping[scl_id] = str(file_path)
-                        self.logger.debug(f"Found matching band file: {scl_id} -> {file_path}")
-                        break
-        return file_mapping
-
-    def _get_chunk_windows(self, width: int, height: int) -> typing.Iterator[Window]:
-        """Generate processing windows for chunked reading."""
-        for y in range(0, height, self.CHUNK_SIZE):
-            for x in range(0, width, self.CHUNK_SIZE):
-                chunk_width = min(self.CHUNK_SIZE, width - x)
-                chunk_height = min(self.CHUNK_SIZE, height - y)
-                yield Window(x, y, chunk_width, chunk_height)
-
-    def create_cloud_mask(self, scl_data: np.ndarray) -> np.ndarray:
-        """Create a boolean mask identifying non-cloud pixels."""
-        mask = ~np.isin(scl_data, list(self.CLOUD_CLASSES.keys()))
-        return mask
-
-    def process_chunk(self, 
-                     band_data: np.ndarray, 
-                     cloud_mask: np.ndarray) -> np.ndarray:
-        """Process a single chunk of data."""
-        masked_chunk = np.full_like(band_data, np.nan, dtype=np.float32)
-        for i in range(band_data.shape[0]):
-            masked_chunk[i] = np.where(cloud_mask, band_data[i], np.nan)
-        return masked_chunk
-
-    def setup_output_dataset(self, 
-                           template_dataset: rasterio.io.DatasetReader, 
-                           output_path: str) -> rasterio.io.DatasetWriter:
-        """Set up the output dataset with appropriate metadata."""
-        metadata = template_dataset.meta.copy()
-        metadata.update({
-            "driver": "GTiff",
-            "dtype": "float32",
-            "tiled": True,
-            "blockxsize": 256,
-            "blockysize": 256,
-            "compress": 'lzw',
-            "predictor": 3,
-            "interleave": 'band'
-        })
-        return rasterio.open(output_path, "w", **metadata)
-
-    def process_files(self) -> None:
-        """Process files in chunks to minimize memory usage."""
-        self.output_dir.mkdir(exist_ok=True)
->>>>>>> fbdce14f4ddc0a87a676b14a7ead757dabc12735
         processed_count = 0
 
         # Print summary of found files
