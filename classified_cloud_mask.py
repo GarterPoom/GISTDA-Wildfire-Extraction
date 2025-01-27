@@ -1,20 +1,15 @@
 import os
 import logging
 import typing
-from pathlib import Path
 import numpy as np
 import rasterio
 from rasterio.transform import Affine
 from rasterio.crs import CRS
-from rasterio.windows import Window
-from rasterio.enums import Resampling
 from osgeo import gdal
-import gc
 
 class SentinelCloudMasker:
     """
-    A memory-optimized class to handle cloud masking for Sentinel-2 imagery.
-    Processes large files in chunks to prevent memory overload.
+    A class to handle cloud masking for Sentinel-2 imagery.
     """
     CLOUD_CLASSES = {
         3: "Cloud Shadow",
@@ -23,13 +18,10 @@ class SentinelCloudMasker:
         9: "Cloud high probability", 
         10: "Thin cirrus"
     }
-    
-    # Define chunk size for processing (adjust based on available memory)
-    CHUNK_SIZE = 2048  # Process 1024x1024 pixel chunks at a time
 
     def __init__(self, scl_dir: str, band_dir: str, output_dir: str, log_level: int = logging.INFO):
         """
-        Initialize the cloud masking processor with chunked processing capabilities.
+        Initialize the cloud masking processor.
         """
         logging.basicConfig(
             level=log_level,
@@ -40,68 +32,70 @@ class SentinelCloudMasker:
         # Validate directories
         self._validate_directories(scl_dir, band_dir, output_dir)
         
-        self.scl_dir = Path(scl_dir)
-        self.band_dir = Path(band_dir)
-        self.output_dir = Path(output_dir)
+        self.scl_dir = scl_dir
+        self.band_dir = band_dir
+        self.output_dir = output_dir
 
         # Prepare file mappings
-        self.scl_files = self._get_file_mapping(self.scl_dir, '_SCL.tif')
-        self.band_files = self._get_band_file_mapping(self.band_dir)
+        self.scl_files = self._get_file_mapping(scl_dir, '_SCL.tif')
+        self.band_files = self._get_file_mapping(band_dir, '.tif')
 
     def _validate_directories(self, *dirs: str) -> None:
-        """
-        Validate a list of directories.
+    """
+    Validate that each specified directory exists, is a directory, 
+    and is readable.
 
-        Ensure that each directory exists, is a directory, and is readable.
+    Args:
+        *dirs (str): Paths to directories to validate.
 
-        Args:
-            *dirs (str): List of directories to validate
+    Raises:
+        ValueError: If any path does not exist, is not a directory,
+        or is not readable.
+    """
 
-        Raises:
-            ValueError: If any of the directories do not exist, are not directories, or are not readable.
-        """
         for dir_path in dirs:
-            path = Path(dir_path)
-            if not path.exists():
+            if not os.path.exists(dir_path):
                 raise ValueError(f"Directory does not exist: {dir_path}")
-            if not path.is_dir():
+            if not os.path.isdir(dir_path):
                 raise ValueError(f"Not a directory: {dir_path}")
-            if not os.access(path, os.R_OK):
+            if not os.access(dir_path, os.R_OK):
                 raise ValueError(f"Directory not readable: {dir_path}")
 
     def _get_file_mapping(self, directory: str, suffix: str) -> dict:
         """
-        Create a mapping of file identifiers to full file paths for a given directory and suffix.
+        Build a mapping of file identifiers to file paths with the given suffix.
 
         Args:
-            directory (str): Directory to traverse for files.
-            suffix (str): File suffix to match (e.g. '.tif').
+            directory (str): Root directory to search for files.
+            suffix (str): File suffix to filter by.
 
         Returns:
-            dict: Mapping of file identifiers to full file paths.
+            dict: Mapping of file identifiers to file paths.
         """
         file_mapping = {}
-        for file_path in directory.rglob(f"*{suffix}"):
-            # Extract tile ID and date from filename (e.g., T47PPT_20241221T034059)
-            identifier = file_path.stem.split('_SCL')[0]
-            file_mapping[identifier] = str(file_path)
-            self.logger.debug(f"Found SCL file: {identifier} -> {file_path}")
+        for root, _, files in os.walk(directory):
+            for file in files:
+                if file.endswith(suffix):
+                    identifier = os.path.basename(file).split(suffix)[0]
+                    file_mapping[identifier] = os.path.join(root, file)
         return file_mapping
 
     def _load_scl_layer(self, file_path: str) -> typing.Tuple[np.ndarray, Affine, CRS]:
         """
-        Load a Sentinel-2 Scene Classification Layer (SCL) file and return its data, transform and CRS.
+        Load a single-band SCL (Scene Classification Layer) file from the given path.
 
         Args:
-            file_path (str): Path to the SCL file
+            file_path (str): Path to the SCL file.
 
         Returns:
-            typing.Tuple[np.ndarray, Affine, CRS]: A tuple containing the SCL data, its transform and CRS
+            tuple: (scl_data, transform, crs) where
+                scl_data (np.ndarray): 2D array of SCL values.
+                transform (Affine): Affine transformation matrix.
+                crs (CRS): Coordinate Reference System of the SCL.
 
         Raises:
-            rasterio.RasterioIOError: If there is an error reading the SCL file
+            rasterio.RasterioIOError: If there is an error reading the file.
         """
-
         try:
             with rasterio.open(file_path) as dataset:
                 scl_data = dataset.read(1)
@@ -112,43 +106,35 @@ class SentinelCloudMasker:
 
     def create_cloud_mask(self, scl_data: np.ndarray) -> np.ndarray:
         """
-        Create a cloud mask from Sentinel-2 Scene Classification Layer (SCL) data.
-
-        This function generates a binary cloud mask by marking pixels as cloud-free 
-        when they do not belong to the predefined cloud-related classes.
+        Create a cloud mask array from the given SCL data.
 
         Args:
-            scl_data (np.ndarray): Scene Classification Layer data as a NumPy array.
+            scl_data (np.ndarray): 2D array of SCL values.
 
         Returns:
-            np.ndarray: A binary mask where True indicates cloud-free pixels and 
-                        False indicates cloud-affected pixels based on the SCL data.
-        """
+            np.ndarray: 2D boolean array where True indicates a cloud pixel.
 
+        Notes:
+            The cloud mask is created by checking if the SCL value is in the
+            keys of the CLOUD_CLASSES dict. If it is, the pixel is marked as
+            a cloud pixel.
+        """
         return ~np.isin(scl_data, list(self.CLOUD_CLASSES.keys()))
 
     def process_files(self) -> None:
         """
-        Process all files in the SCL and band directories.
+        Process all SCL and band files in the specified directories and save the results
+        in the output directory.
 
-        This function will loop through all SCL files and:
-
-        1. Load the SCL file and create a cloud mask
-        2. Load the corresponding band file
-        3. Mask the band data using the cloud mask
-        4. Save the masked band data as an uncompressed GeoTIFF
-        5. Compress the masked GeoTIFF using GDAL Translate
-        6. Remove the intermediate uncompressed GeoTIFF
+        The files are processed in chunks, and the cloud mask is applied to each band. The
+        resulting masked bands are saved as an uncompressed GeoTIFF file, and then
+        compressed using GDAL Translate with enhanced options.
 
         :return: None
         """
         os.makedirs(self.output_dir, exist_ok=True)
 
         processed_count = 0
-
-        # Print summary of found files
-        self.logger.info(f"Found {len(self.scl_files)} SCL files and {len(self.band_files)} matching band files")
-        
         for identifier, scl_path in self.scl_files.items():
             if identifier not in self.band_files:
                 self.logger.warning(f"No matching band file for {identifier}")
@@ -156,93 +142,88 @@ class SentinelCloudMasker:
 
             try:
                 self.logger.info(f"Processing: {identifier}")
-                self.logger.debug(f"SCL file: {scl_path}")
-                self.logger.debug(f"Band file: {self.band_files[identifier]}")
-                
-                with rasterio.open(scl_path) as scl_dataset, \
-                     rasterio.open(self.band_files[identifier]) as band_dataset:
-                    
-                    # Create temporary output file
-                    temp_output_path = str(self.output_dir / f"{identifier}_masked_temp.tif")
-                    output_path = str(self.output_dir / f"{identifier}_masked.tif")
-                    
-                    with self.setup_output_dataset(band_dataset, temp_output_path) as dest:
-                        # Process by chunks
-                        total_chunks = sum(1 for _ in self._get_chunk_windows(band_dataset.width, band_dataset.height))
-                        processed_chunks = 0
-                        
-                        for window in self._get_chunk_windows(band_dataset.width, band_dataset.height):
-                            # Read data chunks
-                            scl_chunk = scl_dataset.read(1, window=window)
-                            band_chunk = band_dataset.read(window=window)
-                            
-                            # Create mask and process chunk
-                            cloud_mask = self.create_cloud_mask(scl_chunk)
-                            masked_chunk = self.process_chunk(band_chunk, cloud_mask)
-                            
-                            # Write chunk
-                            for idx in range(masked_chunk.shape[0]):
-                                dest.write(masked_chunk[idx], indexes=idx + 1, window=window)
-                            
-                            # Clear memory
-                            del scl_chunk, band_chunk, cloud_mask, masked_chunk
-                            gc.collect()
-                            
-                            # Update progress
-                            processed_chunks += 1
-                            if processed_chunks % 10 == 0:  # Log every 10 chunks
-                                self.logger.debug(f"Processed {processed_chunks}/{total_chunks} chunks")
 
-                    # Compress final output using GDAL
-                    gdal.Translate(
-                        destName=output_path,
-                        srcDS=temp_output_path,
-                        options=gdal.TranslateOptions(
-                            format="GTiff",
-                            creationOptions=[
-                                "COMPRESS=LZW",
-                                "PREDICTOR=3",
-                                "TILED=YES",
-                                "BLOCKXSIZE=256",
-                                "BLOCKYSIZE=256",
-                                "BIGTIFF=YES"
-                            ]
-                        )
-                    )
-                    
-                    # Clean up temporary file
-                    os.remove(temp_output_path)
-                    
-                    self.logger.info(f"Saved compressed masked GeoTIFF: {output_path}")
-                    processed_count += 1
-                    
-                    # Force garbage collection
-                    gc.collect()
+                # Load SCL and create mask
+                scl_data, transform, crs = self._load_scl_layer(scl_path)
+                cloud_mask = self.create_cloud_mask(scl_data)
+
+                # Load band data
+                band_path = self.band_files[identifier]
+                with rasterio.open(band_path) as band_dataset:
+                    band_data = band_dataset.read()  # Shape: [bands, height, width]
+                    band_metadata = band_dataset.meta.copy()
+
+                # Initialize masked bands
+                masked_band = np.full_like(band_data, np.nan, dtype=np.float32)
+
+                # Apply mask and validate bands
+                for i in range(band_data.shape[0]):
+                    self.logger.debug(f"Band {i + 1} original stats: min={np.min(band_data[i])}, max={np.max(band_data[i])}")
+                    masked_band[i] = np.where(cloud_mask, band_data[i], np.nan)
+                    self.logger.debug(f"Band {i + 1} masked stats: min={np.nanmin(masked_band[i])}, max={np.nanmax(masked_band[i])}")
+
+                # Save intermediate file (uncompressed)
+                temp_output_path = os.path.join(self.output_dir, f"{identifier}_masked_uncompressed.tif")
+                band_metadata.update({
+                    "driver": "GTiff",
+                    "dtype": "float32",
+                    "count": band_data.shape[0],
+                    "transform": transform,
+                    "crs": crs
+                })
+
+                with rasterio.open(temp_output_path, "w", **band_metadata) as dest:
+                    for idx in range(band_data.shape[0]):
+                        dest.write(masked_band[idx], indexes=idx + 1)
+
+                # Compress using GDAL Translate with options
+                output_path = os.path.join(self.output_dir, f"{identifier}_masked.tif")
+                # Compress using GDAL Translate with enhanced options
+                gdal.Translate(
+                    destName=output_path,
+                    srcDS=temp_output_path,
+                    options=gdal.TranslateOptions(
+                        format="GTiff",
+                        creationOptions=[
+                        "COMPRESS=LZW",        # LZW Compression
+                        "PREDICTOR=3",         # Predictor for float32
+                        "TILED=YES",           # Enable tiling
+                        "BLOCKXSIZE=256",      # Tile width
+                        "BLOCKYSIZE=256",
+                        "BIGTIFF=YES"          # Tile height
+                    ]
+                )
+            )
+                
+                # Remove intermediate file
+                os.remove(temp_output_path)
+
+                self.logger.info(f"Saved compressed masked GeoTIFF: {output_path}")
+                processed_count += 1
 
             except Exception as e:
                 self.logger.error(f"Error processing {identifier}: {e}")
-                continue
 
-        self.logger.info(f"Successfully processed {processed_count} files")
+        self.logger.info(f"Processed {processed_count} files")
 
 def main():
     """
-    Main function to perform cloud masking on Sentinel-2 imagery.
+    Main entry point for the script.
 
-    This function initializes the SentinelCloudMasker with the specified
-    directories for SCL and band files, as well as the output directory for
-    processed files. It then proceeds to process the files while logging
-    detailed debug information.
+    This function initializes a SentinelCloudMasker object with the default directories
+    and then calls the process_files method to process all SCL and band files.
 
-    Directories:
-    - 'SCL_Classified': Directory containing SCL files for cloud masking.
-    - 'Raster_Classified': Directory containing band files to be masked.
-    - 'Raster_Classified_Cloud_Mask': Output directory for masked GeoTIFF files.
+    The following directories are used:
 
-    Raises:
-    - Logs an error message if an unexpected exception occurs during processing.
+    - `SCL_Classified`: Directory containing the SCL files
+    - `Raster_Classified`: Directory containing the band files
+    - `Raster_Classified_Cloud_Mask`: Directory where the resulting masked GeoTIFF files are saved
+
+    If any unexpected errors occur during processing, they are logged to the console using
+    the logging module.
+
+    :return: None
     """
-
     try:
         scl_dir = 'SCL_Classified'
         band_dir = 'Raster_Classified'
