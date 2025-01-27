@@ -41,17 +41,17 @@ class SentinelCloudMasker:
         self.band_files = self._get_file_mapping(band_dir, '.tif')
 
     def _validate_directories(self, *dirs: str) -> None:
-    """
-    Validate that each specified directory exists, is a directory, 
-    and is readable.
+        """
+        Validate that each specified directory exists, is a directory, 
+        and is readable.
 
-    Args:
-        *dirs (str): Paths to directories to validate.
+        Args:
+            *dirs (str): Paths to directories to validate.
 
-    Raises:
-        ValueError: If any path does not exist, is not a directory,
-        or is not readable.
-    """
+        Raises:
+            ValueError: If any path does not exist, is not a directory,
+            or is not readable.
+        """
 
         for dir_path in dirs:
             if not os.path.exists(dir_path):
