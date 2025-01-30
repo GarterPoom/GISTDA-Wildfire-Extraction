@@ -249,8 +249,8 @@ def main():
     The chunk size is set to 2048 for processing the files in chunks.
     """
     root_folder = r'Raster_Classified_Cloud_Mask'
-    scaler_path = r'Export_Model/MinMax_Scaler.pkl'
-    model_path = r'Export_Model/Model_XGB.sav'
+    scaler_path = r'Export_Model/MinMax_Scaler_REDUCED_60M.pkl'
+    model_path = r'Export_Model/Model_XGB_REDUCED_60M.sav'
     output_path = r'Classified_Output'
 
     process_all_tif_files(
@@ -258,7 +258,7 @@ def main():
         scaler_path, 
         model_path, 
         output_path, 
-        chunk_size=2048
+        chunk_size=128
     )
 
 if __name__ == "__main__":
