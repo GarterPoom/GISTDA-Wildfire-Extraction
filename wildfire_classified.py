@@ -246,11 +246,11 @@ def main():
 
     The chunk size is set to 2048 for processing the files in chunks.
     """
-
-    root_folder = r'Raster_Classified_Cloud_Mask' # Root directory containing TIFF files for classification
-    scaler_path = r'Export_Model/MinMax_Scaler.pkl'
-    model_path = r'Export_Model/Model_XGB.sav' # Choose from Export Model folder
-    output_path = r'Classified_Output'
+if __name__ == "__main__":
+    root_folder = r'Raster Classified Cloud Mask' # Root directory containing TIFF files for classification
+    scaler_path = r'Export Model/MinMax_Scaler.pkl'
+    model_path = r'Export Model/Model_XGB.sav' # Choose from Export Model folder
+    output_path = r'Classified Output'
 
     process_all_tif_files(
         root_folder, 
@@ -259,6 +259,6 @@ def main():
         output_path, 
         chunk_size=2048
     )
-
 if __name__ == "__main__":
     main()
+
