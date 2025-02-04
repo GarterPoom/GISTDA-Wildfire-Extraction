@@ -79,25 +79,49 @@ def extract_fire_date_from_filename(filename):
     return None
 
 def reverse_geocode(lat, lon):
+
     """
-    Reverse geocodes a given latitude and longitude pair into a human-readable location.
+    Reverse geocodes a given latitude and longitude to get the administrative region
+    (e.g. province/state) and country name. If the country code is found in the
+    COUNTRY_CODES mapping, it will be replaced with the corresponding country name.
 
     Parameters
     ----------
     lat : float
-        The latitude of the location to reverse geocode.
+        Latitude
     lon : float
-        The longitude of the location to reverse geocode.
+        Longitude
 
     Returns
     -------
     tuple
-        A tuple containing the name, administrative level 1, country, and ISO 3-letter country code of the reverse-geocoded location, or (None, None, None, None) if reverse geocoding fails.
+        (name, admin1, country_name, country_code)
+
+        name : str
+            The name of the nearest administrative region
+        admin1 : str
+            The administrative level 1 name (e.g. province/state)
+        country_name : str
+            The country name
+        country_code : str
+            The country code (e.g. TH, LA, MM, etc.)
     """
-    results = rg.search((lat, lon), mode=1)  # Returns a list of dicts
+    # Country code to country name mapping
+    COUNTRY_CODES = {
+        'TH': 'Thailand',
+        'LA': "Lao People's Democratic Republic",
+        'MM': 'Myanmar',
+        'KH': 'Cambodia',
+        'VN': 'Vietnam',
+        # Add more if needed
+    }
+
+    results = rg.search((lat, lon), mode=1)
     if results:
         result = results[0]
-        return result.get('name'), result.get('admin1'), result.get('country'), result.get('cc')
+        country_code = result.get('cc')
+        country_name = COUNTRY_CODES.get(country_code, None)  # Map cc to country name
+        return result.get('name'), result.get('admin1'), country_name, country_code
     return None, None, None, None
 
 def create_polygon_shapefile_from_burnt_areas(tif_file_path, output_folder):
@@ -146,13 +170,14 @@ def create_polygon_shapefile_from_burnt_areas(tif_file_path, output_folder):
     geoms = [shape(geom) for geom, value in burnt_shapes if value == 1]
     gdf = gpd.GeoDataFrame(geometry=geoms, crs=crs)
 
-    gdf = gdf.to_crs(epsg=4326)
+    gdf = gdf.to_crs(epsg=4326)  # Convert to EPSG:4326 For get Latitude and Longitude
     gdf['FIRE_DATE'] = extract_fire_date_from_filename(os.path.basename(tif_file_path))
     gdf['LATITUDE'] = gdf.geometry.centroid.y
     gdf['LONGITUDE'] = gdf.geometry.centroid.x
 
-    gdf = gdf.to_crs(crs)
-    gdf['AREA'] = gdf.geometry.area
+    # Calculate area
+    gdf = gdf.to_crs(crs)  # Convert back to original CRS
+    gdf['AREA'] = gdf.geometry.area  # Calculate area after projection
 
     # Reverse Geocoding
     ap_en_list, pv_en_list, country_list, iso3_list = [], [], [], []
