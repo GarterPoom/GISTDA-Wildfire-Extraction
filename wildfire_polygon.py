@@ -78,52 +78,6 @@ def extract_fire_date_from_filename(filename):
         return formatted_date
     return None
 
-def reverse_geocode(lat, lon):
-
-    """
-    Reverse geocodes a given latitude and longitude to get the administrative region
-    (e.g. province/state) and country name. If the country code is found in the
-    COUNTRY_CODES mapping, it will be replaced with the corresponding country name.
-
-    Parameters
-    ----------
-    lat : float
-        Latitude
-    lon : float
-        Longitude
-
-    Returns
-    -------
-    tuple
-        (name, admin1, country_name, country_code)
-
-        name : str
-            The name of the nearest administrative region
-        admin1 : str
-            The administrative level 1 name (e.g. province/state)
-        country_name : str
-            The country name
-        country_code : str
-            The country code (e.g. TH, LA, MM, etc.)
-    """
-    # Country code to country name mapping
-    COUNTRY_CODES = {
-        'TH': 'Thailand',
-        'LA': "Lao People's Democratic Republic",
-        'MM': 'Myanmar',
-        'KH': 'Cambodia',
-        'VN': 'Vietnam',
-        # Add more if needed
-    }
-
-    results = rg.search((lat, lon), mode=1)
-    if results:
-        result = results[0]
-        country_code = result.get('cc')
-        country_name = COUNTRY_CODES.get(country_code, None)  # Map cc to country name
-        return result.get('name'), result.get('admin1'), country_name, country_code
-    return None, None, None, None
-
 def create_polygon_shapefile_from_burnt_areas(tif_file_path, output_folder):
     """
     Creates a polygon shapefile from a given GeoTIFF file containing classified burnt areas.
@@ -178,20 +132,6 @@ def create_polygon_shapefile_from_burnt_areas(tif_file_path, output_folder):
     # Calculate area
     gdf = gdf.to_crs(crs)  # Convert back to original CRS
     gdf['AREA'] = gdf.geometry.area  # Calculate area after projection
-
-    # Reverse Geocoding
-    ap_en_list, pv_en_list, country_list, iso3_list = [], [], [], []
-    for lat, lon in zip(gdf['LATITUDE'], gdf['LONGITUDE']):
-        ap_en, pv_en, country, iso3 = reverse_geocode(lat, lon)
-        ap_en_list.append(ap_en)
-        pv_en_list.append(pv_en)
-        country_list.append(country)
-        iso3_list.append(iso3)
-
-    gdf['AP_EN'] = ap_en_list
-    gdf['PV_EN'] = pv_en_list
-    gdf['COUNTRY'] = country_list
-    gdf['ISO3'] = iso3_list
 
     cols = list(gdf.columns)
     cols.append(cols.pop(cols.index('geometry')))
