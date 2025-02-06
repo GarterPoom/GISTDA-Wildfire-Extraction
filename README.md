@@ -96,18 +96,10 @@ GISTDA_BURN EXTRACT
      |_Raster
         |_input
         |_output
-<<<<<<< HEAD
      |_Raster Classified
      |_Raster Classified Cloud Mask
      |_SCL Classified
      |_Wildfire Polygon
-=======
-     |_Raster_Classified
-     |_Raster_Classified_Cloud_Mask
-     |_Raster_Train
-     |_SCL_Classified
-     |_Wildfire_Polygon
->>>>>>> 3643d68bcd17b7a95092c05a142dab17e5ea857a
 ```
 - Classified_Image/: Directory to store Sentinel-2 Imageries for before begins Forest Fire Detection.
 - Classified_Output/: Directory to store Detection Result from Machine Learning as Raster GeoTIFF.
@@ -115,16 +107,9 @@ GISTDA_BURN EXTRACT
 - Pre_Image/: Directory store Sentinel-2 Image which is Before Burn Period as same tile with Post-Image Folder.
 - input/: Contains pre- and post-fire images in TIFF format (```pre``` and ```post``` in filenames).
 - output/: Stores the processed output for each image tile and chunk.
-<<<<<<< HEAD
 - Raster Classified/: Directory to store Raster GeoTIFF for perform Forest Fire Detection that have been performed image resampling.
 - Raster Classified Cloud Mask/: Directory Store Raster GeoTIFF that have been making cloud, cloud shadow and water masking.
 - SCL Classified/: This directory store Scene Classification (SCL) as tif file which converted from jp2 in each imagery that you acquire and store in Classified Image Directory. 
-=======
-- Raster_Classified/: Directory to store Raster GeoTIFF for perform Forest Fire Detection that have been performed image resampling.
-- Raster_Classified_Cloud_Mask/: Directory Store Raster GeoTIFF that have been making cloud and water masking.
-- Raster_Train/: Directory that moves some areas of GeoTIFF Burn Extraction to this not more than 10GB (WIth Current Hardware Specification we used.)
-- SCL Classified/: Directory to store SCL for use to masking Cloud and Cloud Shadows out from image before detection.
->>>>>>> 3643d68bcd17b7a95092c05a142dab17e5ea857a
 - Wildfire Polygon/: Directory to store Burn Detection Polygon Area as SHAPE file format.
 
 ### Features
