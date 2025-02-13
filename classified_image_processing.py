@@ -61,37 +61,13 @@ def resample_image(input_path, output_path, target_resolution=10):
         )
         
         # Perform resampling with compression
-        output_ds = gdal.Translate(
+        gdal.Translate(
             destName=output_path,
             srcDS=src_ds,
             options=translate_options
         )
         
-        # Band description metadata
-        band_descriptions = [
-            'B01',
-            'B02',
-            'B03',
-            'B04',
-            'B05',
-            'B06',
-            'B07',
-            'B08',
-            'B8A',
-            'B09',
-            'B11',
-            'B12'
-        ]
-        
-        # Add band description to each band
-        for i in range(1, output_ds.RasterCount + 1):
-            band = output_ds.GetRasterBand(i)
-            band_name = f"B{str(i).zfill(2)}"  # Assuming the band names are in sequential order
-            if band_name in band_descriptions:
-                band.SetMetadataItem('band_description', band_descriptions[band_name])
-        
         # Close the dataset
-        output_ds = None
         src_ds = None
         
         print(f"Resampling completed with compression: {output_path}")
