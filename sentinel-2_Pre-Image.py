@@ -85,9 +85,10 @@ def process_bands(input_folder, output_folder):
 
                 if resample_image(str(jp2_file), str(temp_output_path)):
                     band_map = {
-                        'B01': 'B01', 'B02': 'B02', 'B03': 'B03', 'B04': 'B04',
-                        'B05': 'B05', 'B06': 'B06', 'B07': 'B07', 'B08': 'B08',
-                        'B8A': 'B8A', 'B09': 'B09', 'B11': 'B11', 'B12': 'B12'
+                        'B02': 'B02', 'B03': 'B03', 'B04': 'B04',
+                        'B05': 'B05', 'B06': 'B06', 'B07': 'B07', 
+                        'B08': 'B08', 'B8A': 'B8A', 'B11': 'B11', 
+                        'B12': 'B12'
                     }
 
                     for band_key in band_map:
@@ -95,8 +96,7 @@ def process_bands(input_folder, output_folder):
                             band_paths[band_key] = str(temp_output_path)
                             break
 
-            ordered_bands = ['B01', 'B02', 'B03', 'B04', 'B05', 'B06', 'B07',
-                             'B08', 'B8A', 'B09', 'B11', 'B12']
+            ordered_bands = ['B02', 'B03', 'B04', 'B05', 'B06', 'B07', 'B08', 'B8A', 'B11', 'B12']
             final_resampled_files = [band_paths[band] for band in ordered_bands 
                                      if band in band_paths]
 
