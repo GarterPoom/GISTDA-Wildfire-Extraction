@@ -143,8 +143,7 @@ class SentinelProcessor:
         """
         Process a single chunk of the image.
         """
-        band_names = ['B01', 'B02', 'B03', 'B04', 'B05', 'B06',
-                     'B07', 'B08', 'B8A', 'B09', 'B11', 'B12']
+        band_names = ['B02', 'B03', 'B04', 'B05', 'B06', 'B07', 'B08', 'B8A', 'B11', 'B12'] # Keep Bands that Contain Resolution 10m and 20m.
         
         pre_bands = {}
         post_bands = {}
@@ -152,7 +151,7 @@ class SentinelProcessor:
         # Process and store output bands in desired order
         output_data = {}
         
-        # First process the B01-B12 bands
+        # First process the B02-B08, B8A, B11, and B12 bands
         for band_name in band_names:
             idx = band_names.index(band_name) + 1
             pre_data = pre_src.read(idx, window=window, masked=True)
@@ -199,8 +198,8 @@ class SentinelProcessor:
         
         # Define band order
         band_order = [
-            'B01', 'B02', 'B03', 'B04', 'B05', 'B06',
-            'B07', 'B08', 'B8A', 'B09', 'B11', 'B12',
+            'B02', 'B03', 'B04', 'B05', 'B06',
+            'B07', 'B08', 'B8A', 'B11', 'B12',
             'dNBR', 'NDVI', 'NDWI', 'Burn_Label'
         ]
         
