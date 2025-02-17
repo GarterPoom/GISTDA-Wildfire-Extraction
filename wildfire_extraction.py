@@ -242,8 +242,8 @@ class SentinelProcessor:
                 img_size = max(post_src.width, post_src.height)
                 chunk_size = self.get_optimal_chunk_size(img_size)
                 
-                # Set number of output bands to exactly 16 (12 original + 4 indices)
-                num_output_bands = 16
+                # Set number of output bands to exactly 14 (10 original + 4 indices)
+                num_output_bands = 14
                 
                 # Update output profile
                 output_profile = post_src.profile.copy()
