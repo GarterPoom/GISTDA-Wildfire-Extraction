@@ -132,6 +132,7 @@ def create_polygon_shapefile_from_burnt_areas(tif_file_path, output_folder):
     # Calculate area
     gdf = gdf.to_crs(crs)  # Convert back to original CRS
     gdf['AREA'] = gdf.geometry.area  # Calculate area after projection
+    gdf = gdf[gdf['AREA'] >= 500] # Keeps only the geometries where the AREA column is 500 Square Meters or greater.
 
     cols = list(gdf.columns)
     cols.append(cols.pop(cols.index('geometry')))
