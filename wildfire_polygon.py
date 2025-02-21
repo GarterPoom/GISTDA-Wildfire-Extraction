@@ -78,73 +78,13 @@ def extract_fire_date_from_filename(filename):
         return formatted_date
     return None
 
-def intersect_with_admin_boundaries(gdf, admin_shp_path):
-    """
-    Performs a spatial intersection between burnt area polygons and administrative boundaries.
-
-    Parameters
-    ----------
-    gdf : GeoDataFrame
-        The GeoDataFrame containing burnt area polygons.
-    admin_shp_path : str
-        The path to the administrative boundary shapefile.
-
-    Returns
-    -------
-    GeoDataFrame
-        A new GeoDataFrame with intersected administrative information.
-    """
-    # Load administrative boundaries with TIS-620 encoding
-    admin_gdf = gpd.read_file(admin_shp_path, encoding='TIS-620')
-
-    # Reproject to match burnt area polygons (EPSG:4326)
-    admin_gdf = admin_gdf.to_crs(epsg=4326)
-
-    # Perform spatial intersection
-    intersected_gdf = gpd.overlay(gdf, admin_gdf, how='intersection')
-
-    return intersected_gdf
-
 def create_polygon_shapefile_from_burnt_areas(tif_file_path, output_folder, admin_shp_path):
     """
     Creates a polygon shapefile from a given GeoTIFF file containing classified burnt areas.
-
-    Parameters
-    ----------
-    tif_file_path : str
-        The path to the GeoTIFF file containing classified burnt areas.
-    output_folder : str
-        The folder path where the output shapefile will be saved.
-    admin_shapefile : str
-        The path to the administrative boundary shapefile.
-
-    Returns
-    -------
-    str
-        The path to the created shapefile.
-
-    Notes
-    -----
-    The shapefile will contain the following fields:
-
-    - FIRE_DATE: The fire date in the format 'YYYY-MM-DD'.
-    - LATITUDE: The latitude of the centroid of each polygon.
-    - LONGITUDE: The longitude of the centroid of each polygon.
-    - AREA: The area in square meters of each polygon.
-    - TB_TN: Sub-district in Thailand, name in Thai.
-    - TB_EN: Sub-district in Thailand, name in English.
-    - AP_TN: District in Thailand, name in Thai.
-    - AP_EN: District in Thailand, name in English.
-    - PV_TN: The Thailand province name in Thai.
-    - PV_EN: The Thailand province name in English.
-    - COUNTRY: The country name in English.
-    - ISO3: The ISO 3-letter country code.
-
-    The shapefile will be written in the EPSG:4326 (WGS1984) coordinate reference system.
     """
-    base_name = os.path.splitext(os.path.basename(tif_file_path))[0] # Remove the file extension
-    output_shapefile_name = f"{base_name}_Burn_classified.shp" # Create a new file name
-    output_shapefile_path = os.path.join(output_folder, output_shapefile_name) # Create the full path
+    base_name = os.path.splitext(os.path.basename(tif_file_path))[0]
+    output_shapefile_name = f"{base_name}_Burn_classified.shp"
+    output_shapefile_path = os.path.join(output_folder, output_shapefile_name)
 
     # Load GeoTIFF file
     with rio.open(tif_file_path) as src:
@@ -152,36 +92,77 @@ def create_polygon_shapefile_from_burnt_areas(tif_file_path, output_folder, admi
         transform = src.transform
         crs = src.crs
     
+    # Create shapes from raster
     mask = burn_classified == 1
     burnt_shapes = shapes(burn_classified, mask=mask, transform=transform)
-
+    
+    # Convert to geometries
     geoms = [shape(geom) for geom, value in burnt_shapes if value == 1]
-    gdf = gpd.GeoDataFrame(geometry=geoms, crs=crs)
-
-    gdf = gdf.to_crs(epsg=4326)  # Convert to EPSG:4326 For get Latitude and Longitude
-    gdf['FIRE_DATE'] = extract_fire_date_from_filename(os.path.basename(tif_file_path)) # Extract fire date
-    gdf['LATITUDE'] = gdf.geometry.centroid.y # Get Latitude
-    gdf['LONGITUDE'] = gdf.geometry.centroid.x # Get Longitude
-
-    # Calculate area
-    gdf = gdf.to_crs(crs)  # Convert back to original CRS
-    gdf['AREA'] = gdf.geometry.area  # Calculate area after projection
-
-    # Intersect with administrative boundaries
-    intersected_gdf = intersect_with_admin_boundaries(gdf, admin_shp_path)
-
-    # Save intersected data
-    intersected_gdf.to_file(output_shapefile_path, driver='ESRI Shapefile')
-
+    
+    # If no geometries found, create empty GeoDataFrame with correct structure
+    if not geoms:
+        print(f"Warning: No burnt areas (value=1) found in {tif_file_path}")
+        # Create empty GeoDataFrame with correct columns
+        gdf = gpd.GeoDataFrame(columns=['FIRE_DATE', 'LATITUDE', 'LONGITUDE', 'AREA', 
+                                      'TB_TN', 'TB_EN', 'AP_TN', 'AP_EN', 'PV_TN', 
+                                      'PV_EN', 'COUNTRY', 'ISO3'], 
+                              geometry=[], crs=crs)
+    else:
+        # Create GeoDataFrame with the found geometries
+        gdf = gpd.GeoDataFrame(geometry=geoms, crs=crs)
+        
+        # Calculate area in original projection (UTM)
+        gdf['AREA'] = gdf.geometry.area
+        
+        # Convert to WGS84 for lat/long calculations
+        gdf_wgs84 = gdf.to_crs(epsg=4326)
+        gdf['LATITUDE'] = gdf_wgs84.geometry.centroid.y
+        gdf['LONGITUDE'] = gdf_wgs84.geometry.centroid.x
+        
+        # Add fire date
+        gdf['FIRE_DATE'] = extract_fire_date_from_filename(os.path.basename(tif_file_path))
+        
+        # Load admin boundaries
+        admin_gdf = gpd.read_file(admin_shp_path, encoding='TIS-620')
+        
+        # Convert admin boundaries to UTM for accurate intersection
+        admin_gdf = admin_gdf.to_crs(gdf.crs)
+        
+        # Perform spatial intersection
+        intersected_gdf = gpd.overlay(gdf, admin_gdf, how='intersection')
+        
+        # If intersection results in empty GeoDataFrame, keep original with empty admin columns
+        if intersected_gdf.empty:
+            print("Warning: Intersection resulted in empty GeoDataFrame. Check if burnt areas overlap with admin boundaries.")
+            for col in admin_gdf.columns:
+                if col != 'geometry':
+                    gdf[col] = pd.NA
+            intersected_gdf = gdf
+        
+        # Convert final result to WGS84 for storage
+        intersected_gdf = intersected_gdf.to_crs(epsg=4326)
+    
+    # Reorder columns consistently
+    final_columns = ['FIRE_DATE', 'LATITUDE', 'LONGITUDE', 'AREA', 
+                    'TB_TN', 'TB_EN', 'AP_TN', 'AP_EN', 'PV_TN', 
+                    'PV_EN', 'COUNTRY', 'ISO3', 'geometry']
+    
+    # Ensure all columns exist (fill with NA if missing)
+    for col in final_columns:
+        if col not in intersected_gdf.columns and col != 'geometry':
+            intersected_gdf[col] = pd.NA
+    
     # Reorder columns
-    cols = list(intersected_gdf.columns) # Get column names
-    cols.append(cols.pop(cols.index('geometry'))) # Move geometry column to the end
-    intersected_gdf = intersected_gdf[cols] # Reorder
-
-    # Print intersected data
-    display(intersected_gdf)
+    intersected_gdf = intersected_gdf[final_columns]
+    
+    # Save to file
     intersected_gdf.to_file(output_shapefile_path, driver='ESRI Shapefile')
+    
+    # Display results
+    display(intersected_gdf)
     print(f"Polygon shapefile '{output_shapefile_path}' has been created.")
+    
+    return intersected_gdf
 
 def main():
     """
