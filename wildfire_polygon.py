@@ -78,7 +78,34 @@ def extract_fire_date_from_filename(filename):
         return formatted_date
     return None
 
-def create_polygon_shapefile_from_burnt_areas(tif_file_path, output_folder):
+def intersect_with_admin_boundaries(gdf, admin_shp_path):
+    """
+    Performs a spatial intersection between burnt area polygons and administrative boundaries.
+
+    Parameters
+    ----------
+    gdf : GeoDataFrame
+        The GeoDataFrame containing burnt area polygons.
+    admin_shp_path : str
+        The path to the administrative boundary shapefile.
+
+    Returns
+    -------
+    GeoDataFrame
+        A new GeoDataFrame with intersected administrative information.
+    """
+    # Load administrative boundaries with TIS-620 encoding
+    admin_gdf = gpd.read_file(admin_shp_path, encoding='TIS-620')
+
+    # Reproject to match burnt area polygons (EPSG:4326)
+    admin_gdf = admin_gdf.to_crs(epsg=4326)
+
+    # Perform spatial intersection
+    intersected_gdf = gpd.overlay(gdf, admin_gdf, how='intersection')
+
+    return intersected_gdf
+
+def create_polygon_shapefile_from_burnt_areas(tif_file_path, output_folder, admin_shp_path):
     """
     Creates a polygon shapefile from a given GeoTIFF file containing classified burnt areas.
 
@@ -88,6 +115,8 @@ def create_polygon_shapefile_from_burnt_areas(tif_file_path, output_folder):
         The path to the GeoTIFF file containing classified burnt areas.
     output_folder : str
         The folder path where the output shapefile will be saved.
+    admin_shapefile : str
+        The path to the administrative boundary shapefile.
 
     Returns
     -------
@@ -102,22 +131,27 @@ def create_polygon_shapefile_from_burnt_areas(tif_file_path, output_folder):
     - LATITUDE: The latitude of the centroid of each polygon.
     - LONGITUDE: The longitude of the centroid of each polygon.
     - AREA: The area in square meters of each polygon.
-    - AP_EN: The administrative level 1 name in English.
-    - PV_EN: The province name in English.
+    - TB_TN: Sub-district in Thailand, name in Thai.
+    - TB_EN: Sub-district in Thailand, name in English.
+    - AP_TN: District in Thailand, name in Thai.
+    - AP_EN: District in Thailand, name in English.
+    - PV_TN: The Thailand province name in Thai.
+    - PV_EN: The Thailand province name in English.
     - COUNTRY: The country name in English.
     - ISO3: The ISO 3-letter country code.
 
-    The shapefile will be written in the EPSG:4326 coordinate reference system.
+    The shapefile will be written in the EPSG:4326 (WGS1984) coordinate reference system.
     """
-    base_name = os.path.splitext(os.path.basename(tif_file_path))[0]
-    output_shapefile_name = f"{base_name}_Burn_classified.shp"
-    output_shapefile_path = os.path.join(output_folder, output_shapefile_name)
+    base_name = os.path.splitext(os.path.basename(tif_file_path))[0] # Remove the file extension
+    output_shapefile_name = f"{base_name}_Burn_classified.shp" # Create a new file name
+    output_shapefile_path = os.path.join(output_folder, output_shapefile_name) # Create the full path
 
+    # Load GeoTIFF file
     with rio.open(tif_file_path) as src:
         burn_classified = src.read(1)
         transform = src.transform
         crs = src.crs
-
+    
     mask = burn_classified == 1
     burnt_shapes = shapes(burn_classified, mask=mask, transform=transform)
 
@@ -125,20 +159,28 @@ def create_polygon_shapefile_from_burnt_areas(tif_file_path, output_folder):
     gdf = gpd.GeoDataFrame(geometry=geoms, crs=crs)
 
     gdf = gdf.to_crs(epsg=4326)  # Convert to EPSG:4326 For get Latitude and Longitude
-    gdf['FIRE_DATE'] = extract_fire_date_from_filename(os.path.basename(tif_file_path))
-    gdf['LATITUDE'] = gdf.geometry.centroid.y
-    gdf['LONGITUDE'] = gdf.geometry.centroid.x
+    gdf['FIRE_DATE'] = extract_fire_date_from_filename(os.path.basename(tif_file_path)) # Extract fire date
+    gdf['LATITUDE'] = gdf.geometry.centroid.y # Get Latitude
+    gdf['LONGITUDE'] = gdf.geometry.centroid.x # Get Longitude
 
     # Calculate area
     gdf = gdf.to_crs(crs)  # Convert back to original CRS
     gdf['AREA'] = gdf.geometry.area  # Calculate area after projection
 
-    cols = list(gdf.columns)
-    cols.append(cols.pop(cols.index('geometry')))
-    gdf = gdf[cols]
+    # Intersect with administrative boundaries
+    intersected_gdf = intersect_with_admin_boundaries(gdf, admin_shp_path)
 
-    display(gdf)
-    gdf.to_file(output_shapefile_path, driver='ESRI Shapefile')
+    # Save intersected data
+    intersected_gdf.to_file(output_shapefile_path, driver='ESRI Shapefile')
+
+    # Reorder columns
+    cols = list(intersected_gdf.columns) # Get column names
+    cols.append(cols.pop(cols.index('geometry'))) # Move geometry column to the end
+    intersected_gdf = intersected_gdf[cols] # Reorder
+
+    # Print intersected data
+    display(intersected_gdf)
+    intersected_gdf.to_file(output_shapefile_path, driver='ESRI Shapefile')
     print(f"Polygon shapefile '{output_shapefile_path}' has been created.")
 
 def main():
@@ -160,12 +202,13 @@ def main():
 
     root_folder = r'Classified_Output'
     output_base_folder = r'Wildfire_Polygon'
+    admin_shp_path = r'Thailand_Administrative_Boundary\Thailand_Administrative_Boundary.shp'
 
     tif_files = find_all_files_in_root(root_folder)
     for tif_file_path in tif_files:
         print(f"\nProcessing file: {tif_file_path}")
         output_folder = create_output_folder_for_file(tif_file_path, output_base_folder)
-        create_polygon_shapefile_from_burnt_areas(tif_file_path, output_folder)
+        create_polygon_shapefile_from_burnt_areas(tif_file_path, output_folder, admin_shp_path)
 
 if __name__ == "__main__":
     main()
