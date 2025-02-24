@@ -117,6 +117,8 @@ def create_polygon_shapefile_from_burnt_areas(tif_file_path, output_folder, admi
     
     # Calculate area in original projection
     gdf['AREA'] = gdf.geometry.area
+
+    gdf = gdf[gdf['AREA'] > 300] # keeps only rows where the AREA column is greater than 300 Square Meters.
     
     # Convert to WGS84 for lat/long calculations
     gdf_wgs84 = gdf.to_crs(epsg=4326)
@@ -201,7 +203,7 @@ def main():
         'Thailand': r'CLMVTH_Administrative_Boundary\Thailand\Thailand_Administrative_Boundary.shp',
         'Laos': r'CLMVTH_Administrative_Boundary\Laos\lao_admbnda_adm2_ngd_20191112.shp',
         'Cambodia': r'CLMVTH_Administrative_Boundary\Cambodia\khm_admbnda_adm3_gov_20181004.shp',
-        'Myanmar': r'CLMVTH_Administrative_Boundary\Myanmar\mm_dtAdmBnd_ODI_py.shp',
+        'Myanmar': r'CLMVTH_Administrative_Boundary\Myanmar\Myanmar_Administrative_Boundary.shp',
         'Vietnam': r'CLMVTH_Administrative_Boundary\Vietnam\vnm_admbnda_adm2_gov_20201027.shp'
         # Add more countries as needed
     }
