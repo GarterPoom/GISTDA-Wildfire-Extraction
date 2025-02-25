@@ -167,7 +167,6 @@ class SentinelProcessor:
         dnbr, ndwi, ndvi = self.calculate_indices(pre_bands, post_bands)
         
         # Add normalized indices
-        output_data['dNBR'] = dnbr
         output_data['NDVI'] = ndvi
         output_data['NDWI'] = ndwi
         
@@ -200,7 +199,7 @@ class SentinelProcessor:
         band_order = [
             'B02', 'B03', 'B04', 'B05', 'B06',
             'B07', 'B08', 'B8A', 'B11', 'B12',
-            'dNBR', 'NDVI', 'NDWI', 'Burn_Label'
+            'NDVI', 'NDWI', 'Burn_Label'
         ]
         
         with rasterio.open(chunk_path, 'w', **chunk_meta) as dst:
@@ -242,8 +241,8 @@ class SentinelProcessor:
                 img_size = max(post_src.width, post_src.height)
                 chunk_size = self.get_optimal_chunk_size(img_size)
                 
-                # Set number of output bands to exactly 14 (10 original + 4 indices)
-                num_output_bands = 14
+                # Set number of output bands to exactly 13 (10 original bands + 3 indices)
+                num_output_bands = 13
                 
                 # Update output profile
                 output_profile = post_src.profile.copy()
@@ -400,7 +399,7 @@ class SentinelProcessor:
                 df['x_coord'] = x_coords.flatten()
             
                 # Reorder columns to show coordinates first, then indices, then bands
-                index_cols = ['dNBR', 'NDVI', 'NDWI', 'Burn_Label']
+                index_cols = ['NDVI', 'NDWI', 'Burn_Label']
                 band_cols = [col for col in df.columns if col not in ['y_coord', 'x_coord'] + index_cols]
                 cols = ['y_coord', 'x_coord'] + index_cols + band_cols
                 df = df[cols]
@@ -497,7 +496,7 @@ def main():
 
         # Randomly select files with burn priority and move to Raster_Train
         logger.info("Selecting and moving TIFF files by burn priority to Raster_Train...")
-        processor.move_burn_priority_files(train_dir, max_size_gb=10)
+        processor.move_burn_priority_files(train_dir, max_size_gb=15)
         logger.info("File selection and movement completed.")
 
         # Now check for processed tiles
