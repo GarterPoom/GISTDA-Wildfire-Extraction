@@ -179,7 +179,7 @@ The ```wildfire_classified.py``` script processes Sentinel-2 satellite imagery t
 - Output: Saves the classification results as GeoTIFF files with binary output indicating burned areas.
 
 ### Wildfire Polygon Extraction
-The ```wildfire_polygon.py``` script processes classified GeoTIFF files to generate polygon shapefiles representing burnt areas. The script searches for all TIFF files in a specified root folder and its subfolders, creates an output folder for each file, and generates polygons where the pixel value is 1 (indicating burnt areas) in the GeoTIFF. The polygons are saved as shapefiles in the output folder.
+The ```wildfire_polygon.py``` script processes classified GeoTIFF files to generate polygon shapefiles representing burnt areas. The script searches for all TIFF files in a specified root folder and its subfolders, creates an output folder for each file, and generates polygons where the pixel value is 1 (indicating burnt areas) in the GeoTIFF. The polygons are saved as shapefiles in the output folder. The Script will be perform for Burn Polygon and Administrative Boundaries SHAPE Files Following Thailand, Laos, Myanmar, and Vietnam.
 
 Key Features:
 - Recursive Search: Finds all TIFF files in the root folder and its subfolders.
@@ -190,3 +190,9 @@ Key Features:
 
 ## Collaboration
 ![png](verythank.png)
+
+Thank you for Administrative Boundaries Data from Thailand, Laos, Myanmar, and Vietnam.
+Thailand Administrative Boundaries : GISTDA
+Laos Administrative Boundaries : [The Humanitarian Data Exchange](https://data.humdata.org/dataset/cod-ab-lao)
+Myanmar Administrative Boundaries : [The Humanitarian Data Exchange](https://data.humdata.org/dataset/cod-ab-mmr)
+Vietnam Administrative Boundaries : [The Humanitarian Data Exchange](https://data.humdata.org/dataset/cod-ab-vnm)
