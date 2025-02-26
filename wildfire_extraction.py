@@ -113,8 +113,9 @@ class SentinelProcessor:
 
             ndwi = (post_bands['B03'] - post_bands['B08']) / (post_bands['B03'] + post_bands['B08'])
             ndvi = (post_bands['B08'] - post_bands['B04']) / (post_bands['B08'] + post_bands['B04'])
+            nbrswir = ((post_bands['B12'] - post_bands['B11']) - 0.02) / ((post_bands['B12'] + post_bands['B11']) + 0.1)
             
-        return dnbr, ndwi, ndvi
+        return dnbr, nbr_post, ndwi, ndvi, nbrswir
 
     @staticmethod
     def create_burn_label(dnbr, ndwi, ndvi, b08):
@@ -164,11 +165,13 @@ class SentinelProcessor:
             output_data[band_name] = post_bands[band_name]
 
         # Calculate indices
-        dnbr, ndwi, ndvi = self.calculate_indices(pre_bands, post_bands)
+        dnbr, nbr_post, ndwi, ndvi, nbrswir = self.calculate_indices(pre_bands, post_bands)
         
         # Add normalized indices
+        output_data['NBR'] = nbr_post
         output_data['NDVI'] = ndvi
         output_data['NDWI'] = ndwi
+        output_data['NBRSWIR'] = nbrswir
         
         # Add burn label
         output_data['Burn_Label'] = self.create_burn_label(
@@ -199,7 +202,8 @@ class SentinelProcessor:
         band_order = [
             'B02', 'B03', 'B04', 'B05', 'B06',
             'B07', 'B08', 'B8A', 'B11', 'B12',
-            'NDVI', 'NDWI', 'Burn_Label'
+            'NBR', 'NDVI', 'NDWI', 'NBRSWIR', 
+            'Burn_Label'
         ]
         
         with rasterio.open(chunk_path, 'w', **chunk_meta) as dst:
@@ -242,7 +246,7 @@ class SentinelProcessor:
                 chunk_size = self.get_optimal_chunk_size(img_size)
                 
                 # Set number of output bands to exactly 13 (10 original bands + 3 indices)
-                num_output_bands = 13
+                num_output_bands = 15
                 
                 # Update output profile
                 output_profile = post_src.profile.copy()
