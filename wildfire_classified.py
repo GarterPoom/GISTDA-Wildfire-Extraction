@@ -116,6 +116,10 @@ def fire_index(df_clean):
     """
     Calculate fire indices from a Pandas DataFrame containing Sentinel-2 bands.
     """
+    # Normalized Burn Ratio
+    nbr = (df_clean['Band_8A'] - df_clean['Band_12']) / (df_clean['Band_8A'] + df_clean['Band_12'])
+    df_clean['NBR'] = nbr
+
     # Normalized difference vegetation index Calculation
     ndvi = (df_clean['Band_8'] - df_clean['Band_4']) / (df_clean['Band_8'] + df_clean['Band_4'])
     df_clean['NDVI'] = ndvi
@@ -123,6 +127,10 @@ def fire_index(df_clean):
     # Normalized difference water index
     ndwi = (df_clean['Band_3'] - df_clean['Band_8']) / (df_clean['Band_3'] + df_clean['Band_8'])
     df_clean["NDWI"] = ndwi
+
+    # Differenced Normalized Burn Ratio Short Wave Infrared (NBRSWIR)
+    nbrswir = (df_clean['Band_12'] - df_clean['Band_11']) - 0.02 / (df_clean['Band_12'] + df_clean['Band_11']) + 0.1
+    df_clean['NBRSWIR'] = nbrswir
     
     return df_clean
 
@@ -167,7 +175,7 @@ def process_tif_file_in_chunks(tif_file_path, scaler_path, model_path, output_ti
     display(df_clean.head())
     print()
 
-    # Filter the DataFrame to only include rows where NDWI is less than 0.5
+    # Filter the DataFrame to only include rows where NDWI is less than 0.5. If NDWI is greater than 0.5, it is likely water.
     df_clean = df_clean[df_clean['NDWI'] < 0.5]
 
     # Get the indices of the remaining valid pixels after filtering
