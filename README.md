@@ -191,8 +191,8 @@ Key Features:
 ## Collaboration
 ![png](verythank.png)
 
-Thank you for Administrative Boundaries Data from Thailand, Laos, Myanmar, and Vietnam.
-Thailand Administrative Boundaries : GISTDA
-Laos Administrative Boundaries : [The Humanitarian Data Exchange](https://data.humdata.org/dataset/cod-ab-lao)
-Myanmar Administrative Boundaries : [The Humanitarian Data Exchange](https://data.humdata.org/dataset/cod-ab-mmr)
-Vietnam Administrative Boundaries : [The Humanitarian Data Exchange](https://data.humdata.org/dataset/cod-ab-vnm)
+Thank you for Administrative Boundaries Data from Thailand, Laos, Myanmar, and Vietnam:
+- Thailand Administrative Boundaries SHAPE Files : GISTDA and [The Humanitarian Data Exchange](https://data.humdata.org/dataset/cod-ab-tha)
+- Laos Administrative Boundaries SHAPE Files : [The Humanitarian Data Exchange](https://data.humdata.org/dataset/cod-ab-lao)
+- Myanmar Administrative Boundaries SHAPE Files : [The Humanitarian Data Exchange](https://data.humdata.org/dataset/cod-ab-mmr)
+- Vietnam Administrative Boundaries SHAPE Files : [The Humanitarian Data Exchange](https://data.humdata.org/dataset/cod-ab-vnm)
