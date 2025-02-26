@@ -1,6 +1,9 @@
 # GISTDA-Wildfire-Extraction
 
-### Repository for method to perform Wildfire Extract from Sentinel-2 Satellite images which this method developed by Thailand Royal Forest Department.
+### Repository for method to perform Wildfire Extract from Sentinel-2 Satellite images which this method developed by Thailand Royal Forest Department and Geo-Informatics and Space Technology Development Agency (GISTDA).
+
+## Warning Cautions
+### <span style="color:red"> This Repository is Machine Learning utilize for Detection Wildfire. Which detection accurate issue such as Bare Soil Land use, Town, Transportation or anything which are not really Wildfire can be detected. </span>
 
 ## Prerequisites
 ### Anaconda
@@ -186,7 +189,7 @@ Key Features:
 - Output Folder Creation: Creates a folder for each TIFF file inside the specified output base folder.
 - Polygon Shapefile Generation: Generates polygons for burnt areas and saves them as shapefiles.
 - Metadata Extraction: Extracts fire date from the TIFF file name and adds it to the shapefile attributes.
-- Geospatial Data Handling: Converts CRS to Latitude and Longitude, calculates centroids, and computes the area of each polygon.
+- Geospatial Data Handling: Converts CRS to ```WGS1984``` or ```EPSG:4326``` for extract Latitude and Longitude, calculates centroids, computes the area of each polygon and Intersection with LVMTH (Lao, Vietnam, Myanmar, Thailand) Administrative Boundaries SHAPE Files for get Locations.
 
 ## Collaboration
 ![png](verythank.png)
