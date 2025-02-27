@@ -1,10 +1,8 @@
-# Library Package
 import os
 import rasterio as rio
 import numpy as np
 import pandas as pd
 import logging
-from skimage.transform import resize
 from IPython.display import display
 import pickle
 import warnings
@@ -92,47 +90,82 @@ def rename_bands(df):
     df.columns = new_col_names
     return df
 
-def clean_data(df, valid_mask):
+def clean_data(df, valid_mask, chunk_size=100000):
     """
     Clean data by applying valid pixel mask and handling NaN/infinite values.
+    Memory-optimized version that processes data in chunks.
     """
     # Apply valid pixel mask
-    df_clean = df[valid_mask].copy()
+    df_clean = df[valid_mask].copy().reset_index(drop=True)
     
     # Define a tolerance for comparison
     tolerance = 1e-5
+    
+    # Process in chunks to reduce memory usage
+    total_rows = len(df_clean)
+    chunks = []
+    
+    for start_idx in range(0, total_rows, chunk_size):
+        end_idx = min(start_idx + chunk_size, total_rows)
+        chunk = df_clean.iloc[start_idx:end_idx].copy()
+        
+        # Remove rows with values close to -0.9999
+        for col in chunk.columns:
+            chunk = chunk[~np.isclose(chunk[col], -0.9999, atol=tolerance)]
+        
+        # Replace infinite values with NaN and drop NaN rows
+        chunk = chunk.replace([np.inf, -np.inf], np.nan).dropna()
+        
+        chunks.append(chunk)
+    
+    if not chunks:
+        return pd.DataFrame(columns=df_clean.columns)
+    
+    return pd.concat(chunks, ignore_index=True)
 
-    # Remove rows with extreme or invalid values
-    df_clean = df_clean[~np.isclose(df_clean, -0.9999, atol=tolerance).any(axis=1)]
-    
-    # Replace infinite values with NaN and drop NaN rows
-    df_clean = df_clean.replace([np.inf, -np.inf], np.nan).dropna()
-    
-    print("Shape after cleaning data:", df_clean.shape)
-    
-    return df_clean
-
-def fire_index(df_clean):
+def fire_index(df_clean, chunk_size=100000):
     """
     Calculate fire indices from a Pandas DataFrame containing Sentinel-2 bands.
+    Memory-optimized version that processes data in chunks.
     """
-    # Normalized Burn Ratio
-    nbr = (df_clean['Band_8A'] - df_clean['Band_12']) / (df_clean['Band_8A'] + df_clean['Band_12'])
-    df_clean['NBR'] = nbr
-
-    # Normalized difference vegetation index Calculation
-    ndvi = (df_clean['Band_8'] - df_clean['Band_4']) / (df_clean['Band_8'] + df_clean['Band_4'])
-    df_clean['NDVI'] = ndvi
+    total_rows = len(df_clean)
+    chunks = []
     
-    # Normalized difference water index
-    ndwi = (df_clean['Band_3'] - df_clean['Band_8']) / (df_clean['Band_3'] + df_clean['Band_8'])
-    df_clean["NDWI"] = ndwi
+    for start_idx in range(0, total_rows, chunk_size):
+        end_idx = min(start_idx + chunk_size, total_rows)
+        chunk = df_clean.iloc[start_idx:end_idx].copy()
+        
+        # Normalized Burn Ratio
+        chunk['NBR'] = (chunk['Band_8A'] - chunk['Band_12']) / (chunk['Band_8A'] + chunk['Band_12'])
 
-    # Differenced Normalized Burn Ratio Short Wave Infrared (NBRSWIR)
-    nbrswir = (df_clean['Band_12'] - df_clean['Band_11']) - 0.02 / (df_clean['Band_12'] + df_clean['Band_11']) + 0.1
-    df_clean['NBRSWIR'] = nbrswir
+        # Normalized difference vegetation index Calculation
+        chunk['NDVI'] = (chunk['Band_8'] - chunk['Band_4']) / (chunk['Band_8'] + chunk['Band_4'])
+        
+        # Normalized difference water index
+        chunk['NDWI'] = (chunk['Band_3'] - chunk['Band_8']) / (chunk['Band_3'] + chunk['Band_8'])
+
+        # Differenced Normalized Burn Ratio Short Wave Infrared (NBRSWIR)
+        chunk['NBRSWIR'] = (chunk['Band_12'] - chunk['Band_11'] - 0.02) / (chunk['Band_12'] + chunk['Band_11'] + 0.1)
+        
+        # Define a tolerance for comparison
+        tolerance = 1e-5
+
+        # Remove rows with extreme or invalid values - process column by column to save memory
+        for col in chunk.columns:
+            chunk = chunk[~np.isclose(chunk[col], -0.9999, atol=tolerance)]
+        
+        # Replace infinite values with NaN and drop NaN rows
+        chunk = chunk.replace([np.inf, -np.inf], np.nan).dropna()
+        
+        chunks.append(chunk)
     
-    return df_clean
+    if not chunks:
+        return pd.DataFrame(columns=list(df_clean.columns) + ['NBR', 'NDVI', 'NDWI', 'NBRSWIR'])
+    
+    result = pd.concat(chunks, ignore_index=True)
+    print("Shape after calculating fire indices and cleaning data:", result.shape)
+    
+    return result
 
 def process_tif_file_in_chunks(tif_file_path, scaler_path, model_path, output_tif_path, chunk_size=50000):
     """
@@ -163,38 +196,67 @@ def process_tif_file_in_chunks(tif_file_path, scaler_path, model_path, output_ti
     display(df.head())
     print()
 
-    # Clean data
-    df_clean = clean_data(df, valid_mask)
+    # Clean data with chunk processing
+    df_clean = clean_data(df, valid_mask, chunk_size=chunk_size)
     print("Cleaned DataFrame: ")
     display(df_clean.head())
     print()
 
-    # Compute fire indices
-    df_clean = fire_index(df_clean)
+    # Calculate indices with chunk processing
+    df_clean = fire_index(df_clean, chunk_size=chunk_size)
     print("Full DataFrame: ")
     display(df_clean.head())
     print()
 
-    # Filter the DataFrame to only include rows where NDWI is less than 0.5. If NDWI is greater than 0.5, it is likely water.
-    df_clean = df_clean[df_clean['NDWI'] < 0.5]
+    # Filter the DataFrame to only include rows where NDWI is less than 0.5 (not water)
+    # We can do this in chunks too if the DataFrame is very large
+    total_rows = len(df_clean)
+    filtered_chunks = []
+    
+    for start_idx in range(0, total_rows, chunk_size):
+        end_idx = min(start_idx + chunk_size, total_rows)
+        chunk = df_clean.iloc[start_idx:end_idx]
+        filtered_chunk = chunk[chunk['NDWI'] < 0.5]
+        filtered_chunks.append(filtered_chunk)
+    
+    if not filtered_chunks:
+        print("No valid data left after filtering. Returning empty predictions.")
+        return {"0": width * height}
+    
+    df_clean = pd.concat(filtered_chunks, ignore_index=True)
 
     # Get the indices of the remaining valid pixels after filtering
-    valid_indices = df_clean.index
+    valid_indices = df_clean.index.to_numpy()
 
-    # Normalize data
-    df_normalized = pd.DataFrame(
-        scaler.transform(df_clean), 
-        columns=df_clean.columns
-    )
-    print("Normalized DataFrame: ")
-    display(df_normalized.head())
-    print()
-
-    # Make predictions (expecting binary 0 or 1)
-    predictions = model.predict(df_normalized)
-
-    # Update final predictions only for the filtered valid pixels
-    final_predictions[valid_indices] = predictions.astype(np.uint8)
+    # Process predictions in chunks to reduce memory usage
+    total_rows = len(df_clean)
+    
+    for start_idx in range(0, total_rows, chunk_size):
+        end_idx = min(start_idx + chunk_size, total_rows)
+        chunk = df_clean.iloc[start_idx:end_idx]
+        
+        # Normalize data
+        chunk_normalized = pd.DataFrame(
+            scaler.transform(chunk), 
+            columns=chunk.columns
+        )
+        
+        # Make predictions
+        chunk_predictions = model.predict(chunk_normalized)
+        
+        # Update final predictions for this chunk
+        chunk_indices = valid_indices[start_idx:end_idx]
+        final_predictions[chunk_indices] = chunk_predictions.astype(np.uint8)
+    
+    # Display sample of normalized data
+    if len(df_clean) > 0:
+        sample_normalized = pd.DataFrame(
+            scaler.transform(df_clean.head(5)), 
+            columns=df_clean.columns
+        )
+        print("Normalized DataFrame (Sample): ")
+        display(sample_normalized)
+        print()
 
     # Reshape predictions to original raster shape
     final_predictions_2d = final_predictions.reshape(height, width)
@@ -245,7 +307,6 @@ def process_all_tif_files(root_folder, scaler_path, model_path, output_path, chu
             chunk_size=chunk_size
         )
 
-# Example usage
 def main():
     """
     Example usage of the script.
@@ -253,20 +314,19 @@ def main():
     Process all classified TIFF files in 'Raster_Classified_Cloud_Mask' folder,
     using the scaler and model from 'Export_Model' folder, and save the results
     in 'Classified_Output' folder.
-
-    The chunk size is set to 2048 for processing the files in chunks.
     """
     root_folder = r'Raster_Classified_Cloud_Mask'
     scaler_path = r'Export_Model/MinMax_Scaler.pkl'
     model_path = r'Export_Model/Model_XGB.sav'
     output_path = r'Classified_Output'
 
+    # Using smaller chunk sizes to reduce memory usage
     process_all_tif_files(
         root_folder, 
         scaler_path, 
         model_path, 
         output_path, 
-        chunk_size=128
+        chunk_size=10000  # Reduced chunk size
     )
 
 if __name__ == "__main__":
