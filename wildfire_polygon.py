@@ -157,12 +157,9 @@ def create_polygon_shapefile_from_burnt_areas(tif_file_path, output_folder, admi
     
     if not intersected_results:
         print("Warning: No intersections found with any country. Using original burnt areas.")
-        # Add empty admin columns to original GeoDataFrame
-        gdf['AP_EN'] = pd.NA
-        gdf['PV_EN'] = pd.NA
-        gdf['COUNTRY'] = pd.NA
-        gdf['ISO3'] = pd.NA
-        final_gdf = gdf
+        # Skip this polygon and continue with the next
+        return None
+    
     else:
         # Combine all intersected results
         final_gdf = pd.concat(intersected_results, ignore_index=True)
