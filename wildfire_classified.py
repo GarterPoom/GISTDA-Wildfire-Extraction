@@ -180,6 +180,11 @@ def process_tif_file_in_chunks(tif_file_path, scaler_path, model_path, output_ti
     display(df_clean.head())
     print()
 
+    # Skip processing if DataFrame is empty
+    if df_clean.empty:
+        print("Warning: No valid data left after cleaning. Skipping this file.")
+        return None
+
     # Filter the DataFrame to only include rows where NDWI is less than 0.5. If NDWI is greater than 0.5, it is likely water.
     df_clean = df_clean[df_clean['NDWI'] < 0.5]
 
