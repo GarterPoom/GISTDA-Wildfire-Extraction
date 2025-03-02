@@ -107,26 +107,24 @@ def create_polygon_shapefile_from_burnt_areas(tif_file_path, output_folder, admi
     
     if not geoms:
         print(f"Warning: No burnt areas (value=1) found in {tif_file_path}")
-        # Create empty GeoDataFrame with correct columns
-        gdf = gpd.GeoDataFrame(columns=['FIRE_DATE', 'LATITUDE', 'LONGITUDE', 'AREA', 'AP_EN',
-                                      'PV_EN', 'COUNTRY', 'ISO3'], geometry=[], crs=crs)
-        return gdf
+        return None
 
     # Create GeoDataFrame with the found geometries
     gdf = gpd.GeoDataFrame(geometry=geoms, crs=crs)
     
     # Calculate area in original projection
     gdf['AREA'] = gdf.geometry.area
-
-    gdf = gdf[gdf['AREA'] >= 500] # keeps only rows where the AREA column is greater than or equal to 500 Square Meters.
+    gdf = gdf[gdf['AREA'] >= 500]  # Keep only areas >= 500 sqm
     
     # Convert to WGS84 for lat/long calculations
     gdf_wgs84 = gdf.to_crs(epsg=4326)
-    gdf['LATITUDE'] = gdf_wgs84.geometry.centroid.y
-    gdf['LONGITUDE'] = gdf_wgs84.geometry.centroid.x
     
-    # Add fire date
-    gdf['FIRE_DATE'] = extract_fire_date_from_filename(os.path.basename(tif_file_path))
+    # Create a new GeoDataFrame for attribute data (in WGS84)
+    gdf_attr = gpd.GeoDataFrame(crs='EPSG:4326') # Change CRS to WGS1984
+    gdf_attr['LATITUDE'] = gdf_wgs84.geometry.centroid.y
+    gdf_attr['LONGITUDE'] = gdf_wgs84.geometry.centroid.x
+    gdf_attr['FIRE_DATE'] = extract_fire_date_from_filename(os.path.basename(tif_file_path))
+    gdf_attr['AREA'] = gdf['AREA'].values  # Maintain AREA in original units
     
     # Initialize empty GeoDataFrame for results
     intersected_results = []
@@ -134,58 +132,41 @@ def create_polygon_shapefile_from_burnt_areas(tif_file_path, output_folder, admi
     # Process each country's admin boundaries
     for country, admin_path in admin_shp_paths.items():
         try:
-            # Load admin boundaries
-            admin_gdf = gpd.read_file(admin_path)
-            
-            # Add country name if not present
+            admin_gdf = gpd.read_file(admin_path).to_crs(gdf.crs)
             if 'COUNTRY' not in admin_gdf.columns:
                 admin_gdf['COUNTRY'] = country
-            
-            # Convert admin boundaries to same CRS as burnt areas
-            admin_gdf = admin_gdf.to_crs(gdf.crs)
-            
-            # Perform spatial intersection
             country_intersection = gpd.overlay(gdf, admin_gdf, how='intersection')
-            
             if not country_intersection.empty:
                 intersected_results.append(country_intersection)
                 print(f"Found intersections with {country}")
-            
         except Exception as e:
             print(f"Error processing {country}: {str(e)}")
             continue
     
     if not intersected_results:
         print("Warning: No intersections found with any country. Using original burnt areas.")
-        # Skip this polygon and continue with the next
         return None
     
-    else:
-        # Combine all intersected results
-        final_gdf = pd.concat(intersected_results, ignore_index=True)
+    final_gdf = pd.concat(intersected_results, ignore_index=True)
     
-    # Convert final result to WGS84
-    final_gdf = final_gdf.to_crs(epsg=4326)
+    # Assign attribute columns while keeping original geometry CRS
+    final_gdf['LATITUDE'] = gdf_wgs84.geometry.centroid.y
+    final_gdf['LONGITUDE'] = gdf_wgs84.geometry.centroid.x
+    final_gdf['FIRE_DATE'] = gdf_attr['FIRE_DATE'].values
+    final_gdf['AREA'] = gdf_attr['AREA'].values
+    final_gdf['COUNTRY'] = final_gdf.get('COUNTRY', pd.NA)
+    final_gdf['ISO3'] = final_gdf.get('ISO3', pd.NA)
     
-    # Reorder columns consistently
-    final_columns = ['FIRE_DATE', 'LATITUDE', 'LONGITUDE', 'AREA', 'AP_EN', 'PV_EN', 'COUNTRY', 'ISO3', 'geometry']
-    
-    # Ensure all columns exist
-    for col in final_columns:
-        if col not in final_gdf.columns and col != 'geometry':
-            final_gdf[col] = pd.NA
-    
-    # Reorder columns
+    # Reorder columns so geometry is last
+    final_columns = ['FIRE_DATE', 'LATITUDE', 'LONGITUDE', 'AREA', 'COUNTRY', 'ISO3', 'geometry']
     final_gdf = final_gdf[final_columns]
     
     # Save to file
     final_gdf.to_file(output_shapefile_path, driver='ESRI Shapefile')
-    
-    # Display results
-    display(final_gdf)
     print(f"Polygon shapefile '{output_shapefile_path}' has been created.")
     
     return final_gdf
+
 
 def main():
     """
