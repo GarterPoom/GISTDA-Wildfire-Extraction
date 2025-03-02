@@ -118,7 +118,7 @@ def create_polygon_shapefile_from_burnt_areas(tif_file_path, output_folder, admi
     # Calculate area in original projection
     gdf['AREA'] = gdf.geometry.area
 
-    gdf = gdf[gdf['AREA'] >= 500] # keeps only rows where the AREA column is greater than 500 Square Meters.
+    gdf = gdf[gdf['AREA'] >= 500] # keeps only rows where the AREA column is greater than or equal to 500 Square Meters.
     
     # Convert to WGS84 for lat/long calculations
     gdf_wgs84 = gdf.to_crs(epsg=4326)
