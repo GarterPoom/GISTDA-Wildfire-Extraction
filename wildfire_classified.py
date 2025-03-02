@@ -139,7 +139,7 @@ def fire_index(df_clean):
     
     return df_clean
 
-def process_tif_file_in_chunks(tif_file_path, scaler_path, model_path, output_tif_path, chunk_size=50000):
+def process_tif_file_in_chunks(tif_file_path, scaler_path, model_path, output_tif_path, chunk_size=10000):
     """
     Process a TIFF file in chunks with binary output.
     """
@@ -230,7 +230,7 @@ def process_tif_file_in_chunks(tif_file_path, scaler_path, model_path, output_ti
 
     return prediction_summary
 
-def process_all_tif_files(root_folder, scaler_path, model_path, output_path, chunk_size=50000):
+def process_all_tif_files(root_folder, scaler_path, model_path, output_path, chunk_size=10000):
     """
     Process all TIFF files in a root folder with binary output.
     """
