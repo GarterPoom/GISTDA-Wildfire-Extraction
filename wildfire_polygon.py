@@ -120,7 +120,8 @@ def create_polygon_shapefile_from_burnt_areas(tif_file_path, output_folder, admi
     gdf_wgs84 = gdf.to_crs(epsg=4326)
     
     # Create a new GeoDataFrame for attribute data (in WGS84)
-    gdf_attr = gpd.GeoDataFrame(crs='EPSG:4326') # Change CRS to WGS1984
+    gdf_attr = gpd.GeoDataFrame(geometry=gdf_wgs84.geometry, crs='EPSG:4326') # Change CRS to WGS1984
+    gdf_attr = pd.DataFrame()
     gdf_attr['LATITUDE'] = gdf_wgs84.geometry.centroid.y
     gdf_attr['LONGITUDE'] = gdf_wgs84.geometry.centroid.x
     gdf_attr['FIRE_DATE'] = extract_fire_date_from_filename(os.path.basename(tif_file_path))
@@ -135,7 +136,10 @@ def create_polygon_shapefile_from_burnt_areas(tif_file_path, output_folder, admi
             admin_gdf = gpd.read_file(admin_path).to_crs(gdf.crs)
             if 'COUNTRY' not in admin_gdf.columns:
                 admin_gdf['COUNTRY'] = country
+            
+            # Make sure to keep the AP_EN and PV_EN columns from admin_gdf
             country_intersection = gpd.overlay(gdf, admin_gdf, how='intersection')
+            
             if not country_intersection.empty:
                 intersected_results.append(country_intersection)
                 print(f"Found intersections with {country}")
@@ -148,25 +152,36 @@ def create_polygon_shapefile_from_burnt_areas(tif_file_path, output_folder, admi
         return None
     
     final_gdf = pd.concat(intersected_results, ignore_index=True)
+
+    # Instead of using the values from gdf_attr directly, create a constant value for all rows
+    fire_date = extract_fire_date_from_filename(os.path.basename(tif_file_path))
     
-    # Assign attribute columns while keeping original geometry CRS
-    final_gdf['LATITUDE'] = gdf_wgs84.geometry.centroid.y
-    final_gdf['LONGITUDE'] = gdf_wgs84.geometry.centroid.x
-    final_gdf['FIRE_DATE'] = gdf_attr['FIRE_DATE'].values
-    final_gdf['AREA'] = gdf_attr['AREA'].values
+    # Assign attribute columns
+    final_gdf['FIRE_DATE'] = fire_date  # Assign the same date to all rows
+
+    # Calculate centroids from the final geometries
+    final_gdf['LATITUDE'] = final_gdf.geometry.centroid.to_crs(epsg=4326).y
+    final_gdf['LONGITUDE'] = final_gdf.geometry.centroid.to_crs(epsg=4326).x
+
+    # Keep other columns as they are
+    final_gdf['AREA'] = final_gdf.get('AREA', pd.NA)
+    final_gdf['AP_EN'] = final_gdf.get('AP_EN', pd.NA)  # Get AP_EN from admin boundaries
+    final_gdf['PV_EN'] = final_gdf.get('PV_EN', pd.NA)  # Get PV_EN from admin boundaries
     final_gdf['COUNTRY'] = final_gdf.get('COUNTRY', pd.NA)
     final_gdf['ISO3'] = final_gdf.get('ISO3', pd.NA)
     
     # Reorder columns so geometry is last
-    final_columns = ['FIRE_DATE', 'LATITUDE', 'LONGITUDE', 'AREA', 'COUNTRY', 'ISO3', 'geometry']
+    final_columns = ['FIRE_DATE', 'LATITUDE', 'LONGITUDE', 'AREA', 'AP_EN', 'PV_EN', 'COUNTRY', 'ISO3', 'geometry']
     final_gdf = final_gdf[final_columns]
+
+    # Display Final GeoDataframe
+    display(final_gdf)
     
     # Save to file
     final_gdf.to_file(output_shapefile_path, driver='ESRI Shapefile')
     print(f"Polygon shapefile '{output_shapefile_path}' has been created.")
     
     return final_gdf
-
 
 def main():
     """
