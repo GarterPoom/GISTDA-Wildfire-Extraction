@@ -50,7 +50,6 @@ You would need to download Sentinel-2 Image from ```https://browser.dataspace.co
                   ├── T47QLA_20201223T040201_B04_10m.jp2
                   ├── T47QLA_20201223T040201_B08_10m.jp2
                 ├── R20m
-                  ├── T47QLA_20201223T040201_B01_20m.jp2
                   ├── T47QLA_20201223T040201_B05_20m.jp2
                   ├── T47QLA_20201223T040201_B06_20m.jp2
                   ├── T47QLA_20201223T040201_B07_20m.jp2
@@ -58,8 +57,6 @@ You would need to download Sentinel-2 Image from ```https://browser.dataspace.co
                   ├── T47QLA_20201223T040201_B11_20m.jp2
                   ├── T47QLA_20201223T040201_B12_20m.jp2
                   ├── T47QLA_20201223T040201_SCL_20m.jp2
-                ├── R60m
-                  ├── T47QLA_20201223T040201_B09_60m.jp2
 ```
 ## Python Modules
 ### Sentinel-2 Image Before and After Burn Resampling and Multi-Band Processing Script
@@ -149,7 +146,6 @@ After finished Burn Extractions, and you would need to use Machine Learning have
                   ├── T47QLA_20201223T040201_B04_10m.jp2
                   ├── T47QLA_20201223T040201_B08_10m.jp2
                 ├── R20m
-                  ├── T47QLA_20201223T040201_B01_20m.jp2
                   ├── T47QLA_20201223T040201_B05_20m.jp2
                   ├── T47QLA_20201223T040201_B06_20m.jp2
                   ├── T47QLA_20201223T040201_B07_20m.jp2
@@ -157,8 +153,6 @@ After finished Burn Extractions, and you would need to use Machine Learning have
                   ├── T47QLA_20201223T040201_B11_20m.jp2
                   ├── T47QLA_20201223T040201_B12_20m.jp2
                   ├── T47QLA_20201223T040201_SCL_20m.jp2
-                ├── R60m
-                  ├── T47QLA_20201223T040201_B09_60m.jp2
 ```
 ### Classified Cloud Mask
 The ```classified_cloud_mask.py``` script processes Sentinel-2 satellite imagery to apply cloud masks and save the results as compressed GeoTIFF files. It reads the Sentinel-2 Scene Classification Layer (SCL) and band data, applies cloud masks, and saves the masked images.
