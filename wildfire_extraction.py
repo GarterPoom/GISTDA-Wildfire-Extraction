@@ -113,9 +113,8 @@ class SentinelProcessor:
 
             ndwi = (post_bands['B03'] - post_bands['B08']) / (post_bands['B03'] + post_bands['B08'])
             ndvi = (post_bands['B08'] - post_bands['B04']) / (post_bands['B08'] + post_bands['B04'])
-            nbrswir = ((post_bands['B12'] - post_bands['B11']) - 0.02) / ((post_bands['B12'] + post_bands['B11']) + 0.1)
             
-        return dnbr, nbr_post, ndwi, ndvi, nbrswir
+        return dnbr, nbr_post, ndwi, ndvi
 
     @staticmethod
     def create_burn_label(dnbr, ndwi, ndvi, b08):
@@ -165,13 +164,12 @@ class SentinelProcessor:
             output_data[band_name] = post_bands[band_name]
 
         # Calculate indices
-        dnbr, nbr_post, ndwi, ndvi, nbrswir = self.calculate_indices(pre_bands, post_bands)
+        dnbr, ndwi, ndvi = self.calculate_indices(pre_bands, post_bands)
         
         # Add normalized indices
-        output_data['NBR'] = nbr_post
+        output_data['dNBR'] = dnbr
         output_data['NDVI'] = ndvi
         output_data['NDWI'] = ndwi
-        output_data['NBRSWIR'] = nbrswir
         
         # Add burn label
         output_data['Burn_Label'] = self.create_burn_label(
@@ -201,9 +199,8 @@ class SentinelProcessor:
         # Define band order
         band_order = [
             'B02', 'B03', 'B04', 'B05', 'B06',
-            'B07', 'B08', 'B8A', 'B11', 'B12',
-            'NBR', 'NDVI', 'NDWI', 'NBRSWIR', 
-            'Burn_Label'
+            'B07', 'B08', 'B8A', 'B11', 'B12', 
+            'dNBR', 'NDVI', 'NDWI', 'Burn_Label'
         ]
         
         with rasterio.open(chunk_path, 'w', **chunk_meta) as dst:
@@ -500,7 +497,7 @@ def main():
 
         # Randomly select files with burn priority and move to Raster_Train
         logger.info("Selecting and moving TIFF files by burn priority to Raster_Train...")
-        processor.move_burn_priority_files(train_dir, max_size_gb=12)
+        processor.move_burn_priority_files(train_dir, max_size_gb=15)
         logger.info("File selection and movement completed.")
 
         # Now check for processed tiles
