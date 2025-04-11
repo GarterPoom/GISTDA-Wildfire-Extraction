@@ -114,7 +114,7 @@ class SentinelProcessor:
             ndwi = (post_bands['B03'] - post_bands['B08']) / (post_bands['B03'] + post_bands['B08'])
             ndvi = (post_bands['B08'] - post_bands['B04']) / (post_bands['B08'] + post_bands['B04'])
             
-        return dnbr, nbr_post, ndwi, ndvi
+        return dnbr, ndwi, ndvi
 
     @staticmethod
     def create_burn_label(dnbr, ndwi, ndvi, b08):
@@ -197,11 +197,11 @@ class SentinelProcessor:
         chunk_path = output_dir / chunk_name
         
         # Define band order
-        band_order = [
-            'B02', 'B03', 'B04', 'B05', 'B06',
-            'B07', 'B08', 'B8A', 'B11', 'B12', 
-            'dNBR', 'NDVI', 'NDWI', 'Burn_Label'
-        ]
+        band_attribute = ['B02', 'B03', 'B04', 'B05', 'B06', 'B07', 'B08', 'B8A', 'B11', 'B12'] # Keep Bands that Contain Resolution 10m and 20m
+        indices = ['dNBR', 'NDVI', 'NDWI'] # Keep Indices for specific Burn Area
+        labels = ['Burn_Label'] # Keep Burn Label
+        
+        band_order = band_attribute + indices + labels
         
         with rasterio.open(chunk_path, 'w', **chunk_meta) as dst:
             for i, band_name in enumerate(band_order):
@@ -241,9 +241,14 @@ class SentinelProcessor:
                 # Calculate optimal chunk size
                 img_size = max(post_src.width, post_src.height)
                 chunk_size = self.get_optimal_chunk_size(img_size)
+
+                # Define band order
+                band_attribute = ['B02', 'B03', 'B04', 'B05', 'B06', 'B07', 'B08', 'B8A', 'B11', 'B12'] # Keep Bands that Contain Resolution 10m and 20m
+                indices = ['dNBR', 'NDVI', 'NDWI'] # Keep Indices for specific Burn Area
+                labels = ['Burn_Label'] # Keep Burn Label
                 
-                # Set number of output bands to exactly 13 (10 original bands + 3 indices)
-                num_output_bands = 15
+                # Set number of output bands to exactly 14 (10 original bands + 3 indices + 1 label)
+                num_output_bands = len(band_attribute) + len(indices) + len(labels)
                 
                 # Update output profile
                 output_profile = post_src.profile.copy()
