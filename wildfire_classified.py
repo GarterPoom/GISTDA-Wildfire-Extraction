@@ -116,10 +116,7 @@ def fire_index(df_clean):
     """
     Calculate fire indices from a Pandas DataFrame containing Sentinel-2 bands.
     """
-    # Normalized Burn Ratio
-    nbr = (df_clean['Band_8A'] - df_clean['Band_12']) / (df_clean['Band_8A'] + df_clean['Band_12'])
-    df_clean['NBR'] = nbr
-
+    
     # Normalized difference vegetation index Calculation
     ndvi = (df_clean['Band_8'] - df_clean['Band_4']) / (df_clean['Band_8'] + df_clean['Band_4'])
     df_clean['NDVI'] = ndvi
@@ -127,10 +124,6 @@ def fire_index(df_clean):
     # Normalized difference water index
     ndwi = (df_clean['Band_3'] - df_clean['Band_8']) / (df_clean['Band_3'] + df_clean['Band_8'])
     df_clean["NDWI"] = ndwi
-
-    # Differenced Normalized Burn Ratio Short Wave Infrared (NBRSWIR)
-    nbrswir = (df_clean['Band_12'] - df_clean['Band_11']) - 0.02 / (df_clean['Band_12'] + df_clean['Band_11']) + 0.1
-    df_clean['NBRSWIR'] = nbrswir
 
     # Remove invalid values
     df_clean = df_clean.replace([np.inf, -np.inf], np.nan).dropna()
