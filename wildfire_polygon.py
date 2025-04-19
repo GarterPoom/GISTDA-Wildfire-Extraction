@@ -171,7 +171,7 @@ def create_polygon_shapefile_from_burnt_areas(tif_file_path, output_folder, admi
     final_gdf['ISO3'] = final_gdf.get('ISO3', pd.NA)
     
     # Reorder columns so geometry is last
-    final_columns = ['FIRE_DATE', 'LATITUDE', 'LONGITUDE', 'AREA', 'AP_EN', 'PV_EN', 'COUNTRY', 'ISO3', 'geometry']
+    final_columns = ['FIRE_DATE', 'LATITUDE', 'LONGITUDE', 'AREA', 'TB_TN', 'TB_EN', 'AP_TN', 'AP_EN', 'PV_TN', 'PV_EN', 'COUNTRY', 'ISO3', 'geometry']
 
     final_gdf = final_gdf[final_columns]
 
