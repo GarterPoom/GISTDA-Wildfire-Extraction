@@ -179,7 +179,7 @@ def create_polygon_shapefile_from_burnt_areas(tif_file_path, output_folder, admi
     display(final_gdf)
     
     # Save to file
-    final_gdf.to_file(output_shapefile_path, driver='ESRI Shapefile', encoding='UTF-8')
+    final_gdf.to_file(output_shapefile_path, driver='ESRI Shapefile', encoding='TIS-620')
     print(f"Polygon shapefile '{output_shapefile_path}' has been created.")
     
     return final_gdf
