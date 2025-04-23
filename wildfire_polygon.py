@@ -164,7 +164,11 @@ def create_polygon_shapefile_from_burnt_areas(tif_file_path, output_folder, admi
     final_gdf['LONGITUDE'] = final_gdf.geometry.centroid.to_crs(epsg=4326).x
 
     # Keep other columns as they are
-    final_gdf['AREA'] = final_gdf.get('AREA', pd.NA)
+    final_gdf['AREA'] = final_gdf.get('AREA', pd.NA) # Get Area in Square Meter Unit
+    final_gdf['AREA_RAI'] = final_gdf['AREA'] / 1600 # Calculate Area in Rai which is Thai Area Measure Unit, Which is 1 Rai = 1600 sqm.
+    final_gdf['TB_TN'] = final_gdf.get('TB_TN', pd.NA)  # Get TB_TN from admin boundaries
+    final_gdf['AP_TN'] = final_gdf.get('AP_TN', pd.NA)  # Get AP_TN from admin boundaries
+    final_gdf['PV_TN'] = final_gdf.get('PV_TN', pd.NA)  # Get PV_TN from admin boundaries
     final_gdf['TB_EN'] = final_gdf.get('TB_EN', pd.NA)  # Get TB_EN from admin boundaries
     final_gdf['AP_EN'] = final_gdf.get('AP_EN', pd.NA)  # Get AP_EN from admin boundaries
     final_gdf['PV_EN'] = final_gdf.get('PV_EN', pd.NA)  # Get PV_EN from admin boundaries
@@ -172,16 +176,16 @@ def create_polygon_shapefile_from_burnt_areas(tif_file_path, output_folder, admi
     final_gdf['ISO3'] = final_gdf.get('ISO3', pd.NA)
     
     # Reorder columns so geometry is last
-    final_columns = ['FIRE_DATE', 'LATITUDE', 'LONGITUDE', 'AREA', 'TB_EN', 'AP_EN', 'PV_EN', 'COUNTRY', 'ISO3', 'geometry']
+    final_columns = ['FIRE_DATE', 'LATITUDE', 'LONGITUDE', 'AREA', 'AREA_RAI', 'TB_TN', 'TB_EN', 'AP_TN', 'AP_EN', 'PV_TN', 'PV_EN', 'COUNTRY', 'ISO3', 'geometry']
 
     final_gdf = final_gdf[final_columns]
 
+    # Save to file
+    final_gdf.to_file(output_shapefile_path, driver='ESRI Shapefile', encoding='TIS-620') # Use TIS-620 encoding for Support Thai Characters.
+    print(f"Polygon shapefile '{output_shapefile_path}' has been created.")
+
     # Display Final GeoDataframe
     display(final_gdf)
-    
-    # Save to file
-    final_gdf.to_file(output_shapefile_path, driver='ESRI Shapefile', encoding='UTF-8')
-    print(f"Polygon shapefile '{output_shapefile_path}' has been created.")
     
     return final_gdf
 
