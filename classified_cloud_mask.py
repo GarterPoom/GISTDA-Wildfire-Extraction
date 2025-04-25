@@ -17,8 +17,7 @@ class SentinelCloudMasker:
         3: "Cloud Shadow",
         6: "Water",
         8: "Cloud medium probability",
-        9: "Cloud high probability", 
-        10: "Thin cirrus"
+        9: "Cloud high probability"
     }
 
     def __init__(self, scl_dir: str, band_dir: str, output_dir: str, 
