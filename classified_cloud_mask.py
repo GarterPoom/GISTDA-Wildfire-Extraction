@@ -14,10 +14,10 @@ class SentinelCloudMasker:
     A memory-efficient class to handle cloud masking for Sentinel-2 imagery.
     """
     CLOUD_CLASSES = {
-        3: "Cloud Shadow",
+        3: "Cloud shadows",
         6: "Water",
         8: "Cloud medium probability",
-        9: "Cloud high probability"
+        9: "Cloud high probability",
     }
 
     def __init__(self, scl_dir: str, band_dir: str, output_dir: str, 
