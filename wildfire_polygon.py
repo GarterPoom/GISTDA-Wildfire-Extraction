@@ -8,7 +8,9 @@ import rasterio as rio
 import numpy as np
 from IPython.display import display
 import pandas as pd
-import reverse_geocoder as rg  # Reverse geocoding library
+from sqlalchemy import create_engine
+from geoalchemy2 import Geometry
+from typing import Optional
 
 def find_all_files_in_root(root_folder, file_extension='.tif'):
     """
@@ -209,9 +211,14 @@ def main():
 
     tif_files = find_all_files_in_root(root_folder)
     for tif_file_path in tif_files:
+        # Process each GeoTIFF file
         print(f"\nProcessing file: {tif_file_path}")
-        output_folder = create_output_folder_for_file(tif_file_path, output_base_folder)
-        create_polygon_shapefile_from_burnt_areas(tif_file_path, output_folder, admin_shp_paths)
 
+        # Create output folder
+        output_folder = create_output_folder_for_file(tif_file_path, output_base_folder)
+
+        # Create polygon shapefile
+        final_gdf = create_polygon_shapefile_from_burnt_areas(tif_file_path, output_folder, admin_shp_paths)
+        
 if __name__ == "__main__":
     main()
