@@ -201,7 +201,7 @@ def main():
     
     # Dictionary of country names and their admin boundary shapefile paths
     admin_shp_paths = {
-        'Thailand': r'CLMVTH_Administrative_Boundary\Thailand\Thailand_Administrative_Boundary.shp',
+        'Thailand': r'CLMVTH_Administrative_Boundary\Thailand\Thailand - Subnational Administrative Boundaries.shp',
         'Laos': r'CLMVTH_Administrative_Boundary\Laos\lao_admbnda_adm2_ngd_20191112.shp',
         'Cambodia': r'CLMVTH_Administrative_Boundary\Cambodia\khm_admbnda_adm3_gov_20181004.shp',
         'Myanmar': r'CLMVTH_Administrative_Boundary\Myanmar\Myanmar_Administrative_Boundary.shp',
