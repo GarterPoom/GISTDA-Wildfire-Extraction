@@ -8,8 +8,6 @@ import rasterio as rio
 import numpy as np
 from IPython.display import display
 import pandas as pd
-from sqlalchemy import create_engine
-from geoalchemy2 import Geometry
 from typing import Optional
 
 def find_all_files_in_root(root_folder, file_extension='.tif'):
