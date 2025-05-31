@@ -1,5 +1,9 @@
 <!DOCTYPE qgis PUBLIC 'http://mrcc.com/qgis.dtd' 'SYSTEM'>
+<<<<<<< HEAD
 <qgis version="3.34.11-Prizren">
+=======
+<qgis version="3.40.6-Bratislava">
+>>>>>>> a92a82daaba5fbe9089add0e50b507cc1efc4fff
   <identifier></identifier>
   <parentidentifier></parentidentifier>
   <language></language>

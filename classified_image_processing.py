@@ -97,6 +97,34 @@ def safe_remove(file_path, max_attempts=5, delay=1):
             return False
     return False
 
+def build_pyramids_nearest(raster_path, overview_levels=[2, 4, 8, 16, 32], resample_alg='NEAREST'):
+    """
+    Build raster pyramids (overviews) using Nearest Neighbor resampling.
+    
+    Args:
+        raster_path (str): Path to the GeoTIFF file
+        overview_levels (list): List of overview levels to build
+        resample_alg (str): Resampling algorithm ('NEAREST', 'AVERAGE', etc.)
+    """
+    try:
+        print(f"Building pyramids for: {raster_path}")
+        
+        dataset = gdal.Open(raster_path, gdal.GA_Update)
+        if not dataset:
+            raise ValueError(f"Could not open raster for pyramid building: {raster_path}")
+        
+        # Build overviews
+        dataset.BuildOverviews(resample_alg, overview_levels)
+        dataset = None  # Close dataset
+        
+        print(f"Successfully built pyramids: {overview_levels} using {resample_alg}")
+        return True
+
+    except Exception as e:
+        print(f"Error building pyramids for {raster_path}: {str(e)}")
+        return False
+
+
 def process_bands(input_folder, output_folder, scl_output_folder=None):
     """
     Processes Sentinel-2 band files in a given input folder with GDAL compression.
@@ -205,6 +233,9 @@ def process_bands(input_folder, output_folder, scl_output_folder=None):
         # Close VRT dataset
         output_ds = None
         vrt_ds = None
+
+        # ✅ BUILD PYRAMIDS HERE
+        build_pyramids_nearest(str(output_path))
         
         if not output_path.exists():
             raise ValueError(f"Failed to create output file: {output_path}")
