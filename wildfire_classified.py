@@ -8,6 +8,7 @@ from skimage.transform import resize
 from IPython.display import display
 import pickle
 import warnings
+import math
 
 pd.set_option("display.max_columns", None)
 
@@ -116,6 +117,13 @@ def fire_index(df_clean):
     """
     Calculate fire indices from a Pandas DataFrame containing Sentinel-2 bands.
     """
+
+    # BAIS2 (Burned Area Index for Sentinel 2)
+    term1 = 1 - math.sqrt((df_clean['Band_6'] * df_clean['Band_7'] * df_clean['Band_8A']) / df_clean['Band_4'])
+    term2 = ((df_clean['Band_12'] - df_clean['Band_8A']) / math.sqrt(df_clean['Band_12'] + df_clean['Band_8A'])) + 1
+
+    bais2 = term1 * term2
+    df_clean['BAIS2'] = bais2
     
     # Normalized difference vegetation index Calculation
     ndvi = (df_clean['Band_8'] - df_clean['Band_4']) / (df_clean['Band_8'] + df_clean['Band_4'])
