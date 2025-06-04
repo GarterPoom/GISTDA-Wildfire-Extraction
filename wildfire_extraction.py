@@ -113,8 +113,13 @@ class SentinelProcessor:
 
             ndwi = (post_bands['B03'] - post_bands['B08']) / (post_bands['B03'] + post_bands['B08'])
             ndvi = (post_bands['B08'] - post_bands['B04']) / (post_bands['B08'] + post_bands['B04'])
+
+            term1 = 1 - np.sqrt((post_bands['B06'] * post_bands['B07'] * post_bands['B8A']) / post_bands['B04'])
+            term2 = ((post_bands['B12'] - post_bands['B8A']) / np.sqrt(post_bands['B12'] + post_bands['B8A'])) + 1
+
+            bais2 = term1 * term2
             
-        return dnbr, ndwi, ndvi
+        return dnbr, ndwi, ndvi, bais2
 
     @staticmethod
     def create_burn_label(dnbr, ndwi, ndvi, b08):
@@ -164,10 +169,11 @@ class SentinelProcessor:
             output_data[band_name] = post_bands[band_name]
 
         # Calculate indices
-        dnbr, ndwi, ndvi = self.calculate_indices(pre_bands, post_bands)
+        dnbr, ndwi, ndvi, bais2 = self.calculate_indices(pre_bands, post_bands)
         
         # Add normalized indices
         output_data['dNBR'] = dnbr
+        output_data['BAIS2'] = bais2
         output_data['NDVI'] = ndvi
         output_data['NDWI'] = ndwi
         
@@ -198,7 +204,7 @@ class SentinelProcessor:
         
         # Define band order
         band_attribute = ['B02', 'B03', 'B04', 'B05', 'B06', 'B07', 'B08', 'B8A', 'B11', 'B12'] # Keep Bands that Contain Resolution 10m and 20m
-        indices = ['dNBR', 'NDVI', 'NDWI'] # Keep Indices for specific Burn Area
+        indices = ['dNBR', 'BAIS2','NDVI', 'NDWI'] # Keep Indices for specific Burn Area
         labels = ['Burn_Label'] # Keep Burn Label
         
         band_order = band_attribute + indices + labels
@@ -244,10 +250,10 @@ class SentinelProcessor:
 
                 # Define band order
                 band_attribute = ['B02', 'B03', 'B04', 'B05', 'B06', 'B07', 'B08', 'B8A', 'B11', 'B12'] # Keep Bands that Contain Resolution 10m and 20m
-                indices = ['dNBR', 'NDVI', 'NDWI'] # Keep Indices for specific Burn Area
+                indices = ['dNBR', 'BAIS2','NDVI', 'NDWI'] # Keep Indices for specific Burn Area
                 labels = ['Burn_Label'] # Keep Burn Label
                 
-                # Set number of output bands to exactly 14 (10 original bands + 3 indices + 1 label)
+                # Set number of output bands to exactly 14 (10 original bands + 4 indices + 1 label)
                 num_output_bands = len(band_attribute) + len(indices) + len(labels)
                 
                 # Update output profile
@@ -502,7 +508,7 @@ def main():
 
         # Randomly select files with burn priority and move to Raster_Train
         logger.info("Selecting and moving TIFF files by burn priority to Raster_Train...")
-        processor.move_burn_priority_files(train_dir, max_size_gb=20)
+        processor.move_burn_priority_files(train_dir, max_size_gb=11)
         logger.info("File selection and movement completed.")
 
         # Now check for processed tiles
