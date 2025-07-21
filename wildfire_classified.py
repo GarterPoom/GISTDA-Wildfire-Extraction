@@ -11,7 +11,7 @@ import warnings
 import rasterio
 from rasterio.enums import Resampling
 from rasterio.transform import from_origin
-from osgeo import gdal
+from osgeo import gdal, osr
 
 pd.set_option("display.max_columns", None)
 
@@ -151,17 +151,15 @@ def fire_index(df_clean):
     return df_clean
 
 def write_indices_to_geotiff(df_clean, output_name, reference_raster_path):
-    with rasterio.open(reference_raster_path) as src:
-        meta = src.meta.copy()
-        height, width = src.height, src.width
-        transform = src.transform
-        crs = src.crs
 
-    num_bands = df_clean.shape[1]
-    meta.update({
-        'count': num_bands,
-        'dtype': 'float32',
-    })
+    # Open reference raster to get geotransform, projection, and size
+    ref_ds = gdal.Open(reference_raster_path, gdal.GA_ReadOnly)
+    if ref_ds is None:
+        raise FileNotFoundError(f"Reference raster {reference_raster_path} could not be opened.")
+    width = ref_ds.RasterXSize
+    height = ref_ds.RasterYSize
+    geotransform = ref_ds.GetGeoTransform()
+    projection = ref_ds.GetProjection()
 
     # Preferred band names in order
     preferred_band_names = ['BAIS2', 'NDVI', 'NDWI']
@@ -170,37 +168,48 @@ def write_indices_to_geotiff(df_clean, output_name, reference_raster_path):
     # Build band_descriptions and output_columns in order of preference
     band_descriptions = []
     output_columns = []
-    # Add preferred bands if present
     for name in preferred_band_names:
         if name in df_clean.columns:
             band_descriptions.append(name)
             output_columns.append(name)
-    # If none of the preferred bands are present, use default composition
     if not band_descriptions:
         for name in default_band_names:
             if name in df_clean.columns:
                 band_descriptions.append(name)
                 output_columns.append(name)
-    # Add any remaining columns not already included
     for col in df_clean.columns:
         if col not in output_columns:
             band_descriptions.append(col)
             output_columns.append(col)
 
+    num_bands = len(output_columns)
+
+    # Create output GeoTIFF with LZW compression and BIGTIFF support
+    driver = gdal.GetDriverByName('GTiff')
+    options = [
+        'COMPRESS=LZW',
+        'BIGTIFF=YES'
+    ]
+    out_path = f"{output_name}_processed.tif"
+    out_ds = driver.Create(out_path, width, height, num_bands, gdal.GDT_Float32, options=options)
+    if out_ds is None:
+        raise RuntimeError(f"Could not create output file {out_path}")
+    out_ds.SetGeoTransform(geotransform)
+    out_ds.SetProjection(projection)
+
+    # Write each band
     for idx, column in enumerate(output_columns):
         full_array = np.full((height * width), np.nan, dtype='float32')
         full_array[df_clean.index] = df_clean[column].values
         data_2d = full_array.reshape((height, width))
-        with rasterio.open(
-            f"{output_name}_processed.tif",
-            'w' if idx == 0 else 'r+',
-            **meta,
-            compress='lzw',  # <-- Add this here
-            BIGTIFF='YES' 
-        ) as dst:
-            dst.write(data_2d, idx + 1)
-            if idx < len(band_descriptions):
-                dst.set_band_description(idx + 1, band_descriptions[idx])
+        out_band = out_ds.GetRasterBand(idx + 1)
+        out_band.WriteArray(data_2d)
+        out_band.SetDescription(band_descriptions[idx])
+        out_band.FlushCache()
+
+    out_ds.FlushCache()
+    out_ds = None
+    ref_ds = None
 
 def build_pyramid(raster_path):
     """
@@ -209,9 +218,6 @@ def build_pyramid(raster_path):
     :param raster_path: Path to the raster file to be processed
     :raises FileNotFoundError: If the raster file could not be opened
     """
-
-    from osgeo import gdal
-
     dataset = gdal.Open(raster_path, gdal.GA_Update)
     if dataset is None:
         raise FileNotFoundError(f"Raster {raster_path} could not be opened.")
