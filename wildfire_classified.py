@@ -8,6 +8,10 @@ from skimage.transform import resize
 from IPython.display import display
 import pickle
 import warnings
+import rasterio
+from rasterio.enums import Resampling
+from rasterio.transform import from_origin
+from osgeo import gdal
 
 pd.set_option("display.max_columns", None)
 
@@ -146,6 +150,71 @@ def fire_index(df_clean):
     
     return df_clean
 
+def write_indices_to_geotiff(df_clean, output_name, reference_raster_path):
+    with rasterio.open(reference_raster_path) as src:
+        meta = src.meta.copy()
+        height, width = src.height, src.width
+        transform = src.transform
+        crs = src.crs
+
+    num_bands = df_clean.shape[1]
+    meta.update({
+        'count': num_bands,
+        'dtype': 'float32',
+        'compress': 'lzw'  # Add LZW compression
+    })
+
+    # Preferred band names in order
+    preferred_band_names = ['BAIS2', 'NDVI', 'NDWI']
+    default_band_names = ['Band_12', 'Band_8A', 'Band_4']
+
+    # Build band_descriptions and output_columns in order of preference
+    band_descriptions = []
+    output_columns = []
+    # Add preferred bands if present
+    for name in preferred_band_names:
+        if name in df_clean.columns:
+            band_descriptions.append(name)
+            output_columns.append(name)
+    # If none of the preferred bands are present, use default composition
+    if not band_descriptions:
+        for name in default_band_names:
+            if name in df_clean.columns:
+                band_descriptions.append(name)
+                output_columns.append(name)
+    # Add any remaining columns not already included
+    for col in df_clean.columns:
+        if col not in output_columns:
+            band_descriptions.append(col)
+            output_columns.append(col)
+
+    for idx, column in enumerate(output_columns):
+        full_array = np.full((height * width), np.nan, dtype='float32')
+        full_array[df_clean.index] = df_clean[column].values
+        data_2d = full_array.reshape((height, width))
+        with rasterio.open(f"{output_name}_processed.tif", 'w' if idx == 0 else 'r+', **meta) as dst:
+            dst.write(data_2d, idx + 1)
+            # Set band description if available
+            if idx < len(band_descriptions):
+                dst.set_band_description(idx + 1, band_descriptions[idx])
+
+def build_pyramid(raster_path):
+    """
+    Build overviews for a raster file using nearest neighbor resampling.
+
+    :param raster_path: Path to the raster file to be processed
+    :raises FileNotFoundError: If the raster file could not be opened
+    """
+
+    from osgeo import gdal
+
+    dataset = gdal.Open(raster_path, gdal.GA_Update)
+    if dataset is None:
+        raise FileNotFoundError(f"Raster {raster_path} could not be opened.")
+
+    dataset.BuildOverviews("NEAREST", [2, 4, 8, 16, 32])
+    dataset = None
+
 def process_tif_file_in_chunks(tif_file_path, scaler_path, model_path, output_tif_path, chunk_size=1000):
     """
     Process a TIFF file in chunks with binary output.
@@ -186,6 +255,10 @@ def process_tif_file_in_chunks(tif_file_path, scaler_path, model_path, output_ti
     print("Full DataFrame: ")
     display(df_clean.head())
     print()
+
+    # Write indices to GeoTIFF
+    write_indices_to_geotiff(df_clean, output_tif_path, tif_file_path)
+    build_pyramid(f"{output_tif_path}_processed.tif")
 
     # Skip processing if DataFrame is empty
     if df_clean.empty:
