@@ -85,12 +85,19 @@ def read_raster_with_nodata(tif_file, chunk_size=10000):
 
 def rename_bands(df):
     """
-    Rename columns of a Pandas DataFrame to the standard Sentinel-2 bands.
+    Directly rename DataFrame columns to the provided band names, then sort them in the standard order.
     """
-    new_col_names = ['Band_2', 'Band_3', 'Band_4', 'Band_5', 'Band_6', 'Band_7',
-                     'Band_8', 'Band_8A', 'Band_11', 'Band_12']
-    df.columns = new_col_names
-    return df
+    # Directly set the columns to the provided band names
+    df.columns = [
+        'Band_12', 'Band_8A', 'Band_4', 'Band_2', 'Band_3',
+        'Band_5', 'Band_6', 'Band_7', 'Band_8', 'Band_11'
+    ]
+    # Sort columns in the desired order
+    ordered_bands = [
+        'Band_2', 'Band_3', 'Band_4', 'Band_5', 'Band_6',
+        'Band_7', 'Band_8', 'Band_8A', 'Band_11', 'Band_12'
+    ]
+    return df[ordered_bands]
 
 def clean_data(df, valid_mask):
     """
@@ -139,7 +146,7 @@ def fire_index(df_clean):
     
     return df_clean
 
-def process_tif_file_in_chunks(tif_file_path, scaler_path, model_path, output_tif_path, chunk_size=10000):
+def process_tif_file_in_chunks(tif_file_path, scaler_path, model_path, output_tif_path, chunk_size=1000):
     """
     Process a TIFF file in chunks with binary output.
     """
@@ -230,7 +237,7 @@ def process_tif_file_in_chunks(tif_file_path, scaler_path, model_path, output_ti
 
     return prediction_summary
 
-def process_all_tif_files(root_folder, scaler_path, model_path, output_path, chunk_size=10000):
+def process_all_tif_files(root_folder, scaler_path, model_path, output_path, chunk_size=1000):
     """
     Process all TIFF files in a root folder with binary output.
     """

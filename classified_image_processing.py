@@ -189,8 +189,15 @@ def process_bands(input_folder, output_folder, scl_output_folder=None):
                         band_paths[band_key] = str(output_path)
                         break
 
+<<<<<<< HEAD
         ordered_bands = ['B02', 'B03', 'B04', 'B05', 'B06', 'B07', 'B08', 'B8A', 'B11', 'B12']
         final_resampled_files = [band_paths[band] for band in ordered_bands if band in band_paths]
+=======
+        # Process regular bands
+        ordered_bands = ['B12', 'B8A', 'B04', 'B02', 'B03', 'B05', 'B06', 'B07', 'B08', 'B11']
+        final_resampled_files = [band_paths[band] for band in ordered_bands 
+                               if band in band_paths]
+>>>>>>> 8b41eb8704ca4c663bbc33629f9771f9a6672e85
 
         if not final_resampled_files:
             raise ValueError("No valid band files were processed")
