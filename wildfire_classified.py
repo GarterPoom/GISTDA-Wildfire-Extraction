@@ -161,7 +161,6 @@ def write_indices_to_geotiff(df_clean, output_name, reference_raster_path):
     meta.update({
         'count': num_bands,
         'dtype': 'float32',
-        'compress': 'lzw'  # Add LZW compression
     })
 
     # Preferred band names in order
@@ -192,9 +191,14 @@ def write_indices_to_geotiff(df_clean, output_name, reference_raster_path):
         full_array = np.full((height * width), np.nan, dtype='float32')
         full_array[df_clean.index] = df_clean[column].values
         data_2d = full_array.reshape((height, width))
-        with rasterio.open(f"{output_name}_processed.tif", 'w' if idx == 0 else 'r+', **meta) as dst:
+        with rasterio.open(
+            f"{output_name}_processed.tif",
+            'w' if idx == 0 else 'r+',
+            **meta,
+            compress='lzw',  # <-- Add this here
+            BIGTIFF='YES' 
+        ) as dst:
             dst.write(data_2d, idx + 1)
-            # Set band description if available
             if idx < len(band_descriptions):
                 dst.set_band_description(idx + 1, band_descriptions[idx])
 
