@@ -152,6 +152,23 @@ def fire_index(df_clean):
 
 def write_indices_to_geotiff(df_clean, output_name, reference_raster_path):
 
+    """
+    Writes specified indices from a DataFrame to a GeoTIFF file using a reference raster for geotransform and projection.
+
+    Args:
+        df_clean (pd.DataFrame): DataFrame containing cleaned and processed index values.
+        output_name (str): Base name for the output GeoTIFF file.
+        reference_raster_path (str): Path to the reference raster file for geotransform and projection information.
+
+    Raises:
+        FileNotFoundError: If the reference raster cannot be opened.
+        RuntimeError: If the output GeoTIFF file cannot be created.
+
+    The function prioritizes writing bands with preferred names (e.g., 'BAIS2', 'NDVI', 'NDWI') if present in the DataFrame.
+    If preferred bands are not available, default band names are used. The output GeoTIFF is created with LZW compression
+    and BIGTIFF support. Each band is fully populated with NaN values for missing data to maintain the raster dimensions.
+    """
+
     # Open reference raster to get geotransform, projection, and size
     ref_ds = gdal.Open(reference_raster_path, gdal.GA_ReadOnly)
     if ref_ds is None:
