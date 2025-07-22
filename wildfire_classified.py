@@ -150,101 +150,6 @@ def fire_index(df_clean):
     
     return df_clean
 
-def write_indices_to_geotiff(df_clean, output_name, reference_raster_path):
-
-    """
-    Writes specified indices from a DataFrame to a GeoTIFF file using a reference raster for geotransform and projection.
-
-    Args:
-        df_clean (pd.DataFrame): DataFrame containing cleaned and processed index values.
-        output_name (str): Base name for the output GeoTIFF file.
-        reference_raster_path (str): Path to the reference raster file for geotransform and projection information.
-
-    Raises:
-        FileNotFoundError: If the reference raster cannot be opened.
-        RuntimeError: If the output GeoTIFF file cannot be created.
-
-    The function prioritizes writing bands with preferred names (e.g., 'BAIS2', 'NDVI', 'NDWI') if present in the DataFrame.
-    If preferred bands are not available, default band names are used. The output GeoTIFF is created with LZW compression
-    and BIGTIFF support. Each band is fully populated with NaN values for missing data to maintain the raster dimensions.
-    """
-
-    # Open reference raster to get geotransform, projection, and size
-    ref_ds = gdal.Open(reference_raster_path, gdal.GA_ReadOnly)
-    if ref_ds is None:
-        raise FileNotFoundError(f"Reference raster {reference_raster_path} could not be opened.")
-    width = ref_ds.RasterXSize
-    height = ref_ds.RasterYSize
-    geotransform = ref_ds.GetGeoTransform()
-    projection = ref_ds.GetProjection()
-
-    # Preferred band names in order
-    preferred_band_names = ['BAIS2', 'NDVI', 'NDWI']
-    default_band_names = ['Band_12', 'Band_8A', 'Band_4']
-
-    # Build band_descriptions and output_columns in order of preference
-    band_descriptions = []
-    output_columns = []
-    for name in preferred_band_names:
-        if name in df_clean.columns:
-            band_descriptions.append(name)
-            output_columns.append(name)
-    if not band_descriptions:
-        for name in default_band_names:
-            if name in df_clean.columns:
-                band_descriptions.append(name)
-                output_columns.append(name)
-    for col in df_clean.columns:
-        if col not in output_columns:
-            band_descriptions.append(col)
-            output_columns.append(col)
-
-    num_bands = len(output_columns)
-
-    # Create output GeoTIFF with LZW compression and BIGTIFF support
-    driver = gdal.GetDriverByName('GTiff')
-    options = [
-        'COMPRESS=LZW',
-        'TILED=YES',
-        'BLOCKXSIZE=256', 
-        'BLOCKYSIZE=256',
-        'BIGTIFF=YES' 
-    ]
-    out_path = f"{output_name}_processed.tif"
-    out_ds = driver.Create(out_path, width, height, num_bands, gdal.GDT_Float32, options=options)
-    if out_ds is None:
-        raise RuntimeError(f"Could not create output file {out_path}")
-    out_ds.SetGeoTransform(geotransform)
-    out_ds.SetProjection(projection)
-
-    # Write each band
-    for idx, column in enumerate(output_columns):
-        full_array = np.full((height * width), np.nan, dtype='float32')
-        full_array[df_clean.index] = df_clean[column].values
-        data_2d = full_array.reshape((height, width))
-        out_band = out_ds.GetRasterBand(idx + 1)
-        out_band.WriteArray(data_2d)
-        out_band.SetDescription(band_descriptions[idx])
-        out_band.FlushCache()
-
-    out_ds.FlushCache()
-    out_ds = None
-    ref_ds = None
-
-def build_pyramid(raster_path):
-    """
-    Build overviews for a raster file using nearest neighbor resampling.
-
-    :param raster_path: Path to the raster file to be processed
-    :raises FileNotFoundError: If the raster file could not be opened
-    """
-    dataset = gdal.Open(raster_path, gdal.GA_Update)
-    if dataset is None:
-        raise FileNotFoundError(f"Raster {raster_path} could not be opened.")
-
-    dataset.BuildOverviews("NEAREST", [2, 4, 8, 16, 32])
-    dataset = None
-
 def process_tif_file_in_chunks(tif_file_path, scaler_path, model_path, output_tif_path, chunk_size=10000):
     """
     Process a TIFF file in chunks with binary output.
@@ -285,11 +190,7 @@ def process_tif_file_in_chunks(tif_file_path, scaler_path, model_path, output_ti
     print("Full DataFrame: ")
     display(df_clean.head())
     print()
-
-    # Write indices to GeoTIFF
-    write_indices_to_geotiff(df_clean, output_tif_path, tif_file_path)
-    build_pyramid(f"{output_tif_path}_processed.tif")
-
+    
     # Skip processing if DataFrame is empty
     if df_clean.empty:
         print("Warning: No valid data left after cleaning. Skipping this file.")
