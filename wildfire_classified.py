@@ -205,7 +205,10 @@ def write_indices_to_geotiff(df_clean, output_name, reference_raster_path):
     driver = gdal.GetDriverByName('GTiff')
     options = [
         'COMPRESS=LZW',
-        'BIGTIFF=YES'
+        'TILED=YES',
+        'BLOCKXSIZE=256', 
+        'BLOCKYSIZE=256',
+        'BIGTIFF=YES' 
     ]
     out_path = f"{output_name}_processed.tif"
     out_ds = driver.Create(out_path, width, height, num_bands, gdal.GDT_Float32, options=options)
