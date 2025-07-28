@@ -107,22 +107,55 @@ class SentinelProcessor:
             tuple: (dnbr, ndwi, ndvi) calculated indices
         """
         with np.errstate(divide='ignore', invalid='ignore'):
-            nbr_pre = (pre_bands['B8A'] - pre_bands['B12']) / (pre_bands['B8A'] + pre_bands['B12'])
-            nbr_post = (post_bands['B8A'] - post_bands['B12']) / (post_bands['B8A'] + post_bands['B12'])
-            dnbr = nbr_pre - nbr_post
 
+            # NBR (Normalized Burn Ratio) common used for detect burned areas. For observe burn severity, we need to calculate the difference between pre and post fire by substrracting.
+            ## Calculate NBR Before Burn
+            nbr_pre = (pre_bands['B8A'] - pre_bands['B12']) / (pre_bands['B8A'] + pre_bands['B12'])
+
+            ## Calculate NBR After Burn
+            nbr_post = (post_bands['B8A'] - post_bands['B12']) / (post_bands['B8A'] + post_bands['B12'])
+
+            ## Calculate Differenced Normalized Burn Ratio for observe burn severity
+            dnbr = nbr_pre - nbr_post
+            
+            # NDWI (Normalized Difference Water Index) used for monitor Water body.
             ndwi = (post_bands['B03'] - post_bands['B08']) / (post_bands['B03'] + post_bands['B08'])
+
+            # NDVI (Normalized Difference Vegetation Index) used for quantifying green vegetation.
             ndvi = (post_bands['B08'] - post_bands['B04']) / (post_bands['B08'] + post_bands['B04'])
 
-            term1 = 1 - np.sqrt((post_bands['B06'] * post_bands['B07'] * post_bands['B8A']) / post_bands['B04'])
-            term2 = ((post_bands['B12'] - post_bands['B8A']) / np.sqrt(post_bands['B12'] + post_bands['B8A'])) + 1
+            # BAIS2 (Burned Area Index for Sentinel 2) 
+            # Handle division by zero and invalid values
+            denominator_b4 = post_bands['B04']
+            denominator_b12_b8a = post_bands['B12'] + post_bands['B8A']
+            
+            # Avoid division by zero and negative values under square root
+            valid_mask = (denominator_b4 > 0) & (denominator_b12_b8a > 0)
+            
+            term1 = np.full_like(post_bands['B06'], np.nan)
+            term2 = np.full_like(post_bands['B06'], np.nan)
+            
+            # Calculate term1 where valid
+            term1[valid_mask] = 1 - np.sqrt((post_bands['B06'][valid_mask] * 
+                                             post_bands['B07'][valid_mask] * 
+                                             post_bands['B8A'][valid_mask]) / 
+                                            denominator_b4[valid_mask])
+            
+            # Calculate term2 where valid
+            term2[valid_mask] = ((post_bands['B12'][valid_mask] - post_bands['B8A'][valid_mask]) / 
+                                np.sqrt(denominator_b12_b8a[valid_mask])) + 1
 
             bais2 = term1 * term2
+
+            # SAVI (Soil Adjusted Vegetation Index) used for filter Bare Soil and Landuse.
             
-        return dnbr, ndwi, ndvi, bais2
+            L = 1 # L is soil brightness correction factor and could range from (0 -1)
+            savi = (post_bands['B08'] - post_bands['B04']) / ((post_bands['B08'] + post_bands['B04'] + L)) * (1 + L)
+            
+        return dnbr, ndwi, ndvi, bais2, savi
 
     @staticmethod
-    def create_burn_label(dnbr, ndwi, ndvi, b08):
+    def create_burn_label(dnbr, ndwi, ndvi, b08, savi):
         """
         Create burn label mask based on spectral indices.
         
@@ -136,11 +169,11 @@ class SentinelProcessor:
             np.array: Binary burn label mask
         """
         burn_label = np.where(
-            (dnbr > 0.27) & (ndwi < 0) & (ndvi < 0.14) & (b08 < 2500),
+            (dnbr > 0.27) & (ndwi < 0) & (ndvi < 0.14) & (b08 < 2500) & (savi < 0.4),
             1, 0)
 
         burn_label[~np.isfinite(dnbr) | ~np.isfinite(ndwi) | 
-                  ~np.isfinite(ndvi) | ~np.isfinite(b08)] = 0
+                  ~np.isfinite(ndvi) | ~np.isfinite(b08) | ~np.isfinite(savi)] = 0
         
         return burn_label
 
@@ -169,17 +202,18 @@ class SentinelProcessor:
             output_data[band_name] = post_bands[band_name]
 
         # Calculate indices
-        dnbr, ndwi, ndvi, bais2 = self.calculate_indices(pre_bands, post_bands)
+        dnbr, ndwi, ndvi, bais2, savi = self.calculate_indices(pre_bands, post_bands)
         
         # Add normalized indices
         output_data['dNBR'] = dnbr
         output_data['BAIS2'] = bais2
         output_data['NDVI'] = ndvi
         output_data['NDWI'] = ndwi
+        output_data['SAVI'] = savi
         
         # Add burn label
         output_data['Burn_Label'] = self.create_burn_label(
-            dnbr, ndwi, ndvi, post_bands['B08']
+            dnbr, ndwi, ndvi, post_bands['B08'], savi
         )
         
         return output_data
@@ -204,7 +238,7 @@ class SentinelProcessor:
         
         # Define band order
         band_attribute = ['B02', 'B03', 'B04', 'B05', 'B06', 'B07', 'B08', 'B8A', 'B11', 'B12'] # Keep Bands that Contain Resolution 10m and 20m
-        indices = ['dNBR', 'BAIS2','NDVI', 'NDWI'] # Keep Indices for specific Burn Area
+        indices = ['dNBR', 'BAIS2','NDVI', 'NDWI', 'SAVI'] # Keep Indices for specific Burn Area
         labels = ['Burn_Label'] # Keep Burn Label
         
         band_order = band_attribute + indices + labels
@@ -250,7 +284,7 @@ class SentinelProcessor:
 
                 # Define band order
                 band_attribute = ['B02', 'B03', 'B04', 'B05', 'B06', 'B07', 'B08', 'B8A', 'B11', 'B12'] # Keep Bands that Contain Resolution 10m and 20m
-                indices = ['dNBR', 'BAIS2','NDVI', 'NDWI'] # Keep Indices for specific Burn Area
+                indices = ['dNBR', 'BAIS2','NDVI', 'NDWI', 'SAVI'] # Keep Indices for specific Burn Area
                 labels = ['Burn_Label'] # Keep Burn Label
                 
                 # Set number of output bands to exactly 14 (10 original bands + 4 indices + 1 label)
