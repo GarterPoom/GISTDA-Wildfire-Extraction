@@ -1,0 +1,31 @@
+name: cuda_wildfire_env
+channels:
+  - rapidsai
+  - conda-forge
+  - nvidia
+  - defaults
+dependencies:
+  - python=3.12
+  - "cuda-version>=12.0,<=12.8"
+  - rapids=25.06
+  - jupyterlab
+  - numpy
+  - pandas
+  - scikit-learn
+  - matplotlib
+  - seaborn
+  - geopandas
+  - rasterio
+  - shapely
+  - fiona
+  - gdal
+  - pyproj
+  - pyarrow
+  - xgboost
+  - lightgbm
+  - dask
+  - distributed
+  - pip
+  - pip:
+      - mapclassify
+      - imageio
