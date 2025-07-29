@@ -93,13 +93,12 @@ def rename_bands(df):
     """
     # Directly set the columns to the provided band names
     df.columns = [
-        'Band_12', 'Band_8A', 'Band_4', 'Band_2', 'Band_3',
-        'Band_5', 'Band_6', 'Band_7', 'Band_8', 'Band_11'
+        'B12', 'B8A', 'B04', 'B02', 'B03',
+        'B05', 'B06', 'B07', 'B08', 'B11'
     ]
     # Sort columns in the desired order
     ordered_bands = [
-        'Band_2', 'Band_3', 'Band_4', 'Band_5', 'Band_6',
-        'Band_7', 'Band_8', 'Band_8A', 'Band_11', 'Band_12'
+        'B02', 'B03', 'B04', 'B05', 'B06', 'B07', 'B08', 'B8A', 'B11', 'B12'
     ]
     return df[ordered_bands]
 
@@ -129,19 +128,24 @@ def fire_index(df_clean):
     """
 
     # BAIS2 (Burned Area Index for Sentinel 2)
-    term1 = 1 - np.sqrt((df_clean['Band_6'] * df_clean['Band_7'] * df_clean['Band_8A']) / df_clean['Band_4'])
-    term2 = ((df_clean['Band_12'] - df_clean['Band_8A']) / np.sqrt(df_clean['Band_12'] + df_clean['Band_8A'])) + 1
+    term1 = 1 - np.sqrt((df_clean['B06'] * df_clean['B07'] * df_clean['B8A']) / df_clean['B04'])
+    term2 = ((df_clean['B12'] - df_clean['B8A']) / np.sqrt(df_clean['B12'] + df_clean['B8A'])) + 1
 
     bais2 = term1 * term2
     df_clean['BAIS2'] = bais2
     
     # Normalized difference vegetation index Calculation
-    ndvi = (df_clean['Band_8'] - df_clean['Band_4']) / (df_clean['Band_8'] + df_clean['Band_4'])
+    ndvi = (df_clean['B08'] - df_clean['B04']) / (df_clean['B08'] + df_clean['B04'])
     df_clean['NDVI'] = ndvi
     
     # Normalized difference water index
-    ndwi = (df_clean['Band_3'] - df_clean['Band_8']) / (df_clean['Band_3'] + df_clean['Band_8'])
+    ndwi = (df_clean['B03'] - df_clean['B08']) / (df_clean['B03'] + df_clean['B08'])
     df_clean["NDWI"] = ndwi
+
+    # Soil Adjusted Vegetation Index
+    L = 1 ## soil brightness correction factor and could range from (0 -1)
+    savi = ((df_clean['B08'] - df_clean['B04']) / (df_clean['B08'] + df_clean['B04'] + L)) * (1 + L)
+    df_clean['SAVI'] = savi
 
     # Remove invalid values
     df_clean = df_clean.replace([np.inf, -np.inf], np.nan).dropna()
@@ -198,6 +202,9 @@ def process_tif_file_in_chunks(tif_file_path, scaler_path, model_path, output_ti
 
     # Filter the DataFrame to only include rows where NDWI is less than 0.5. If NDWI is greater than 0.5, it is likely water.
     df_clean = df_clean[df_clean['NDWI'] < 0.5]
+
+    #Filter the dataframe that contain values less than or equal to 0.4
+    df_clean = df_clean[df_clean['SAVI'] < 0.4]
 
     # Get the indices of the remaining valid pixels after filtering
     valid_indices = df_clean.index
