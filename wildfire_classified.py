@@ -1,17 +1,12 @@
 # Library Package
-import os
-import rasterio as rio
-import numpy as np
-import pandas as pd
-import logging
-from skimage.transform import resize
-from IPython.display import display
-import pickle
-import warnings
-import rasterio
-from rasterio.enums import Resampling
-from rasterio.transform import from_origin
-from osgeo import gdal, osr
+import os # for file operations and environment variables 
+import rasterio as rio # for working with geospatial data in raster format 
+import numpy as np # for numerical operations and arrays
+import pandas as pd # for data manipulation and analysis 
+import logging # for logging messages
+from IPython.display import display # for displaying outputs in Jupyter Notebooks formats
+import pickle # for serializing and de-serializing Python objects
+import warnings # for handling warnings
 
 pd.set_option("display.max_columns", None)
 
@@ -27,12 +22,16 @@ def find_tif_files(root_folder):
     """
     Recursively search for all files with the extension '.tif' in the root folder and its subfolders.
     """
-    tif_files = []
-    for subdir, dirs, files in os.walk(root_folder):
-        for file in files:
-            if file.endswith(".tif"):
-                tif_files.append(os.path.join(subdir, file))
-    return tif_files
+    tif_files = [] # Initialize an empty list to store the TIFF file paths
+    for subdir, dirs, files in os.walk(root_folder): # Walk through the root folder and its subfolders
+        for file in files: # Iterate over the files in the current directory
+            if file.endswith(".tif"): # Check if the file has the '.tif' extension
+                tif_files.append(os.path.join(subdir, file)) # Add the TIFF file path to the list
+
+    print(f"Found {len(tif_files)} TIFF files in the root folder and its subfolders.") # Print the number of TIFF files found
+
+    # Return the list of TIFF file paths            
+    return tif_files 
 
 def read_raster_with_nodata(tif_file, chunk_size=10000):
     """
@@ -43,49 +42,50 @@ def read_raster_with_nodata(tif_file, chunk_size=10000):
     tuple
         DataFrame with raster data, valid data mask, and nodata value
     """
-    with rio.open(tif_file) as src:
+    with rio.open(tif_file) as src: # Open the TIFF file
         # Print metadata
-        print(f"\nProcessing file: {tif_file}")
-        print("\nMetadata:")
-        for key, value in src.meta.items():
-            print(f"{key}: {value}")
+        print(f"\nProcessing file: {tif_file}") # Print the TIFF file path
+        print("\nMetadata:") # Print metadata
+        for key, value in src.meta.items(): # Iterate over the metadata
+            print(f"{key}: {value}") # Print each key-value pair
        
-        height, width = src.shape
-        n_bands = src.count
-        nodata_value = src.nodata if src.nodata is not None else np.nan
+        height, width = src.shape # Get the height and width of the raster
+        n_bands = src.count # Get the number of bands
+        nodata_value = src.nodata if src.nodata is not None else np.nan # Get the nodata value
        
-        print(f"Image dimensions: {width}x{height}")
-        print(f"Number of bands: {n_bands}")
-        print(f"Nodata value: {nodata_value}")
+        print(f"Image dimensions: {width}x{height}") # Print the image dimensions
+        print(f"Number of bands: {n_bands}") # Print the number of bands
+        print(f"Nodata value: {nodata_value}") # Print the nodata value
        
-        df_list = []
-        mask_list = []
+        df_list = [] # Initialize an empty list to store data chunks
+        mask_list = [] # Initialize an empty list to store mask chunks
         
-        for i in range(0, height, chunk_size):
+        for i in range(0, height, chunk_size): # Iterate over the height of the raster
             # Read data chunk
-            data_chunk = src.read(window=rio.windows.Window(0, i, width, min(chunk_size, height - i)))
+            data_chunk = src.read(window=rio.windows.Window(0, i, width, min(chunk_size, height - i))) # Read a chunk of data from the TIFF file
             
             # Create mask for valid pixels
-            if nodata_value is not None:
-                valid_mask = ~np.isclose(data_chunk, nodata_value, equal_nan=True)
-            else:
-                valid_mask = ~np.isnan(data_chunk)
+            if nodata_value is not None: # Check if there is a nodata value
+                valid_mask = ~np.isclose(data_chunk, nodata_value, equal_nan=True) # Create a mask for valid pixels based on the nodata value
+
+            else: # If there is no nodata value
+                valid_mask = ~np.isnan(data_chunk) # Create a mask for valid pixels based on NaN
             
             # Reshape data
-            reshaped_data_chunk = data_chunk.reshape(data_chunk.shape[0], -1).T
-            df_chunk = pd.DataFrame(reshaped_data_chunk, columns=[f'Band_{i+1}' for i in range(data_chunk.shape[0])])
+            reshaped_data_chunk = data_chunk.reshape(data_chunk.shape[0], -1).T # Reshape the data chunk to a 2D array
+            df_chunk = pd.DataFrame(reshaped_data_chunk, columns=[f'Band_{i+1}' for i in range(data_chunk.shape[0])]) # Create a DataFrame from the reshaped data
             
             # Reshape mask
-            reshaped_mask_chunk = valid_mask.reshape(valid_mask.shape[0], -1).T
-            mask_chunk = reshaped_mask_chunk.all(axis=1)
-            
-            df_list.append(df_chunk)
-            mask_list.append(mask_chunk)
+            reshaped_mask_chunk = valid_mask.reshape(valid_mask.shape[0], -1).T # Reshape the mask chunk to a 2D array
+            mask_chunk = reshaped_mask_chunk.all(axis=1) # Create a boolean mask for valid pixels
+             
+            df_list.append(df_chunk) # Append the data chunk to the list
+            mask_list.append(mask_chunk) # Append the mask chunk to the list
         
-        df = pd.concat(df_list, ignore_index=True)
-        valid_mask = np.concatenate(mask_list)
+        df = pd.concat(df_list, ignore_index=True) # Concatenate the data chunks into a single DataFrame
+        valid_mask = np.concatenate(mask_list) # Concatenate the mask chunks into a single array
         
-        return df, valid_mask, nodata_value
+        return df, valid_mask, nodata_value # Return the DataFrame, valid data mask, and nodata value
 
 def rename_bands(df):
     """
@@ -96,10 +96,12 @@ def rename_bands(df):
         'B12', 'B8A', 'B04', 'B02', 'B03',
         'B05', 'B06', 'B07', 'B08', 'B11'
     ]
+
     # Sort columns in the desired order
     ordered_bands = [
         'B02', 'B03', 'B04', 'B05', 'B06', 'B07', 'B08', 'B8A', 'B11', 'B12'
     ]
+    
     return df[ordered_bands]
 
 def clean_data(df, valid_mask):
