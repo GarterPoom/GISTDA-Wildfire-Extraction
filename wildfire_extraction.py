@@ -238,7 +238,7 @@ class SentinelProcessor:
         
         # Define band order
         band_attribute = ['B02', 'B03', 'B04', 'B05', 'B06', 'B07', 'B08', 'B8A', 'B11', 'B12'] # Keep Bands that Contain Resolution 10m and 20m
-        indices = ['dNBR', 'BAIS2','NDVI', 'NDWI', 'SAVI'] # Keep Indices for specific Burn Area
+        indices = ['BAIS2','NDVI', 'NDWI', 'SAVI'] # Keep Indices for specific Burn Area
         labels = ['Burn_Label'] # Keep Burn Label
         
         band_order = band_attribute + indices + labels
@@ -284,7 +284,7 @@ class SentinelProcessor:
 
                 # Define band order
                 band_attribute = ['B02', 'B03', 'B04', 'B05', 'B06', 'B07', 'B08', 'B8A', 'B11', 'B12'] # Keep Bands that Contain Resolution 10m and 20m
-                indices = ['dNBR', 'BAIS2','NDVI', 'NDWI', 'SAVI'] # Keep Indices for specific Burn Area
+                indices = ['BAIS2','NDVI', 'NDWI', 'SAVI'] # Keep Indices for specific Burn Area
                 labels = ['Burn_Label'] # Keep Burn Label
                 
                 # Set number of output bands to exactly 14 (10 original bands + 4 indices + 1 label)
