@@ -183,7 +183,7 @@ def process_bands(input_folder, output_folder, scl_output_folder=None):
                         break
 
         # Process regular bands
-        ordered_bands = ['B12', 'B8A', 'B04', 'B02', 'B03', 'B05', 'B06', 'B07', 'B08', 'B11']
+        ordered_bands = ['B02', 'B03', 'B04', 'B05', 'B06', 'B07', 'B08', 'B8A', 'B11', 'B12']
         final_resampled_files = [band_paths[band] for band in ordered_bands 
                                if band in band_paths]
 

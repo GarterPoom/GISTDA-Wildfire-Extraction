@@ -92,10 +92,7 @@ def rename_bands(df):
     Directly rename DataFrame columns to the provided band names, then sort them in the standard order.
     """
     # Directly set the columns to the provided band names
-    df.columns = [
-        'B12', 'B8A', 'B04', 'B02', 'B03',
-        'B05', 'B06', 'B07', 'B08', 'B11'
-    ]
+    df.columns = ['B02', 'B03', 'B04', 'B05', 'B06', 'B07', 'B08', 'B8A', 'B11', 'B12']
 
     # Sort columns in the desired order
     ordered_bands = [
